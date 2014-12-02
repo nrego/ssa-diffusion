@@ -1,72 +1,57 @@
 from __future__ import division, print_function; __metaclass__ = type
 
-from propensity import Propensity
+from propensitycoretest import gen_diff_cases, PropensityDiffTests
 import numpy
-
-
-class PropensityCoreTests:
-
-    def setUp(self):
-        self.prop = Propensity(self.state)
-
-    def tearDown(self):
-        del self.prop
-
-    def test_n_species_array_setup_correctly(self):
-
-        prop = self.prop
-
-        assert len(prop.species) == prop.n_species.shape[0]
-        assert prop.n_species.shape == (2, 3)
-        assert numpy.array_equal(prop.n_species, self.expected_n_species)
-
-'''Diffusion tests'''
-class PropensityDiffTests(PropensityCoreTests):
-
-    def test_n_compartments_gives_correct_result(self):
-        # 3, in this case...
-        assert self.prop.n_compartments == expected_n_compartments
-
-    def test_diff_arrays_setup_correctly(self):
-
-        prop = self.prop
-
-        assert prop.diff_prop.shape[0] == 2 * prop.diff.shape[0]
-        assert prop.diff_prop.shape[1] == prop.diff.shape[1]
-
-        assert numpy.array_equal(prop.diff, expected_diff)
-        assert numpy.array_equal(prop.diff_prop, expected_diff_prop)
-
-    def test_diff_cumulative_array_initialized_correctly(self):
-        prop = self.prop
-
-        assert prop.diff_cum.ndim == 1
-
-        assert prop.diff_cum.size == (2*len(prop.species)*prop.n_compartments)
-        assert numpy.array_equal(prop.diff_cum, expected_diff_cum)
 
 
 class TestPropensityDiffusionOnly(PropensityDiffTests):
 
-    state = {'n_species': {'A': [10, 10, 10],
-                           'B': [10, 0, 0]},
-             'rates': {'diffusion': {'A': [1, 1, 1],
-                                    'B': [2, 2, 2]},
+    state = {'n_species': {'A': [10, 10, 10, 10],
+                           'B': [10, 0, 0, 0]},
+             'rates': {'diffusion': {'A': [1, 1, 1, 1],
+                                    'B': [2, 2, 2, 2]},
                        'reaction': {}
                       }
             }
 
-    expected_n_compartments = 3
+    expected_n_compartments = 4
 
-    expected_n_species = numpy.array([[10, 10, 10],
-                                      [10, 0, 0]])
+    expected_n_species = numpy.array([state['n_species']['A'],
+                                      state['n_species']['B']])
 
-    expected_diff = numpy.array([[1, 1, 1],
-                                 [2, 2, 2]])
+    expected_diff = numpy.array([[1, 1, 1, 1],
+                                 [2, 2, 2, 2]])
 
-    expected_diff_prop = numpy.array([[10, 10,  0],
-                                      [ 0, 10, 10],
-                                      [20,  0,  0],
-                                      [ 0,  0,  0]])
+    expected_diff_prop = numpy.array([[10, 10, 10,  0],
+                                      [ 0, 10, 10, 10],
+                                      [20,  0, 0,  0],
+                                      [ 0,  0, 0, 0]])
+
 
     expected_diff_cum = expected_diff_prop.cumsum()
+
+    diff_tests_A = gen_diff_cases(expected_diff_prop, expected_diff, expected_n_species, 0)
+    diff_tests_B = gen_diff_cases(expected_diff_prop, expected_diff, expected_n_species, 1)
+
+    expected_alpha_diff = numpy.sum(expected_diff_prop)
+
+    def test_alpha_rxn_is_zero(self):
+        prop = self.prop
+
+        assert prop.alpha_rxn == 0
+
+    def check_move(self, testidx, idx):
+        prop = self.prop
+
+        testcase = self.diff_tests_A[testidx]
+        prop.run_diffusion(idx)
+
+        assert numpy.array_equal(prop.diff_prop, testcase[0]), "Expected:\n {!r}, \ngot:\n {!r}".format(testcase[0], prop.diff_prop)
+        assert numpy.array_equal(prop.n_species, testcase[1]), "Expected:\n {!r}, \ngot:\n {!r}".format(testcase[1], prop.n_species)
+
+    def test_diffusion_movements(self):
+
+        indices = (0, 7, 2, 5, 1, 6)
+
+        for testidx, idx in enumerate(indices):
+            yield self.check_move, testidx, idx

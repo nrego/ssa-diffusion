@@ -32,6 +32,7 @@ class Propensity:
 
         #Cumulative sum for diff propensities
         self.diff_cum = None
+        self.diff_length = None
 
         # Array of reactions
         self.rxn = None
@@ -72,6 +73,7 @@ class Propensity:
         log.debug('Diff propensity array: {!r}'.format(self.diff_prop))
 
         self.diff_cum = self.diff_prop.cumsum()
+        self.diff_length = len(self.diff_cum)
 
         self.rxn = self.rxn_prop = numpy.array(self.state['rates']['reaction'].items())
 
@@ -82,6 +84,7 @@ class Propensity:
         if rand < self.alpha_diff:
             #idx = (rand < self.diff_prop.cumsum()).argmax()
             idx = (rand < self.diff_cum).argmax()
+            assert idx < self.diff_length
             #log.debug('cumsum: {!r}'.format(self.diff_cum))
             #log.debug('idx: {}'.format(idx))
             self.run_diffusion(idx)
@@ -107,6 +110,14 @@ class Propensity:
         #          format(self.species[specie_idx], col_from, col_to))
 
         #log.debug('N Species before: {!r}'.format(self.n_species))
+
+        # Illegal species movement, but handle gracefully for sake of unit tests
+        if self.n_species[specie_idx, col_from] == 0:
+            log.info("Trying to move a species where one doesn't exist:")
+            log.info("Idx: {}, specie_idx:{}, col: {}".format(idx, specie_idx, col_from))
+            log.info("going to next iteration. N species: {!r}".format(self.n_species))
+
+            return
 
         self.n_species[specie_idx, col_from] -= 1
         self.n_species[specie_idx, col_to] += 1
@@ -144,13 +155,12 @@ class Propensity:
 
     @property
     def alpha_diff(self):
-        return self.diff_cum[-1]
-
+        return self.diff_cum[-1] or 0
 
     @property
     def alpha_rxn(self):
         if self._alpha_rxn is None:
-            self._alpha_rxn = self.rxn_prop.sum()
+            self._alpha_rxn = self.rxn_prop.sum() or 0
 
         return self._alpha_rxn
 
