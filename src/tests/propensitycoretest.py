@@ -3,6 +3,7 @@ from __future__ import division, print_function; __metaclass__ = type
 from propensity import Propensity
 import numpy
 
+
 class PropensityCoreTests:
 
     def setUp(self):
@@ -24,8 +25,9 @@ class PropensityCoreTests:
 
         assert prop.alpha == prop.alpha_diff + prop.alpha_rxn
 
-'''Diffusion tests'''
+
 class PropensityDiffTests(PropensityCoreTests):
+    '''Diffusion tests'''
 
     def test_diff_arrays_setup_correctly(self):
 
@@ -49,6 +51,20 @@ class PropensityDiffTests(PropensityCoreTests):
         prop = self.prop
 
         assert prop.alpha_diff == self.expected_alpha_diff
+
+
+class PropensityRxnTests(PropensityCoreTests):
+    '''Reaction tests'''
+
+    def test_rxn_arrays_setup_correctly(self):
+        prop = self.prop
+
+    def test_rxn_cumulative_array_initialized_correctly(self):
+        pass
+
+    def test_alpha_rxn_initialized_correctly(self):
+        pass
+
 
 # Generate an expected, updated n_species and diff_prop
 # After moving species i  to the right - for corner and intermed cases

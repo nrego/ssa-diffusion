@@ -19,8 +19,12 @@ class Propensity:
 
         self.state = state
         self.species = None
-        self.n_species = None
-        self._n_compartments = None
+        self.n_species = None  # N species array
+
+        # Constant attributes
+        self.n_compartments = None
+        self.specie_cnt = None
+        self.rxn_cnt = None
 
         # Constant arrays representing differential right
         # left diffusion movements
@@ -73,9 +77,14 @@ class Propensity:
         log.debug('Diff propensity array: {!r}'.format(self.diff_prop))
 
         self.diff_cum = self.diff_prop.cumsum()
-        self.diff_length = len(self.diff_cum)
 
         self.rxn = self.rxn_prop = numpy.array(self.state['rates']['reaction'].items())
+
+        self.diff_length = len(self.diff_cum)
+        self.n_compartments = self.n_species.shape[1]
+        self.rxn_cnt = self.rxn.shape[0]
+        self.specie_cnt = self.n_species.shape[0]
+        assert self.specie_cnt == len(self.species)
 
     # Choose appropriate reaction, based on rand = r*alpha (r is [0,1)])
     def choose_rxn(self, rand):
@@ -167,10 +176,3 @@ class Propensity:
     @property
     def alpha(self):
         return self.alpha_diff + self.alpha_rxn
-
-    @property
-    def n_compartments(self):
-        if self._n_compartments is None:
-            self._n_compartments = self.diff.shape[1]
-
-        return self._n_compartments

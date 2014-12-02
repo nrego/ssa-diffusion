@@ -1,4 +1,4 @@
-*.pyc
-*.pyo
-examples/*/*.cpt
-examples/*/*.dat
+**.pyc
+**.pyo
+**.cpt
+**.dat
