@@ -2,6 +2,7 @@ from __future__ import division, print_function; __metaclass__ = type
 
 from propensitycoretest import gen_diff_cases, PropensityDiffTests
 import numpy
+import nose
 
 
 class TestPropensityDiffusionOnly(PropensityDiffTests):
@@ -9,10 +10,10 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
     state = {'n_species': {'A': [10, 10, 10, 10],
                            'B': [10, 0, 0, 0]},
              'rates': {'diffusion': {'A': [1, 1, 1, 1],
-                                    'B': [2, 2, 2, 2]},
+                                     'B': [2, 2, 2, 2]},
                        'reaction': {}
-                      }
-            }
+                       }
+             }
 
     expected_n_compartments = 4
 
@@ -43,11 +44,20 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
     def check_move(self, testidx, idx):
         prop = self.prop
 
+        alpha_rxn_before = prop.alpha_rxn
+
         testcase = self.diff_tests_A[testidx]
         prop.run_diffusion(idx)
 
+        expected_alpha_diff = numpy.sum(testcase[0])
+
         assert numpy.array_equal(prop.diff_prop, testcase[0]), "Expected:\n {!r}, \ngot:\n {!r}".format(testcase[0], prop.diff_prop)
         assert numpy.array_equal(prop.n_species, testcase[1]), "Expected:\n {!r}, \ngot:\n {!r}".format(testcase[1], prop.n_species)
+
+        assert prop.alpha_diff == expected_alpha_diff, 'Alpha_diff wrong after diffusion!'
+        assert prop.alpha_rxn == alpha_rxn_before, 'Alpha reaction changed after diffusion'
+
+        assert prop.alpha == alpha_rxn_before + expected_alpha_diff, 'Alpha not updated correctly after diffusion'
 
     def test_diffusion_movements(self):
 

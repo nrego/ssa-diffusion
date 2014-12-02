@@ -36,24 +36,24 @@ class System:
         except Exception as e:
             raise ValueError('invalid compartment specification: {!r}'.format(e))
 
-        self._compartment_bounds = numpy.array(list(compartments))
-        self._compartment_lengths = numpy.diff(self.compartment_bounds)
-        self._species = config.get(['system', 'spec', 'species'], [])
-        self._species.sort()
-        self._reactions = config.get(['system', 'spec', 'reactions'], {})
+        self.compartment_bounds = numpy.array(list(compartments))
+        self.compartment_lengths = numpy.diff(self.compartment_bounds)
+        self.species = config.get(['system', 'spec', 'species'], [])
+        self.species.sort()
+        self.reactions = config.get(['system', 'spec', 'reactions'], {})
 
     def __init__(self, rc=None):
         self.rc = rc or ssa.rc
 
         # system spec stuff
-        self._compartment_bounds = None
-        self._compartment_lengths = None
-        self._species = None
-        self._reactions = None
+        self.compartment_bounds = None
+        self.compartment_lengths = None
+        self.species = None
+        self.reactions = None
         self.process_config()
 
         # system state
-        self._state = None
+        self.state = None
         self._propensity = None
 
     # Initialize state from config - only during 'ssa_init'
@@ -86,9 +86,10 @@ class System:
                 rates['diffusion'][specie] = diff_rates
 
         # Initialize 'state' - i.e. what changes as simulation runs
-        self._state = { 'time': 0.0,
-                        'n_species': {specie: [0 for i in self.compartment_lengths] for specie in self.species},
-                        'rates': rates
+        self.state = {'time': 0.0,
+                      'n_species': {specie: [0 for i in self.compartment_lengths]
+                                    for specie in self.species},
+                      'rates': rates
                       }
 
         # System state from config file
@@ -99,7 +100,7 @@ class System:
                     if type(val) == int:
                         n_arr[i] = val
 
-            self._state['n_species'][specie] = numpy.array(n_arr, dtype=numpy.uint32)
+            self.state['n_species'][specie] = numpy.array(n_arr, dtype=numpy.uint32)
 
         self.rc.pstatus('...Done\n')
         self.rc.pflush()
@@ -130,7 +131,7 @@ class System:
 
     # Simply reset state - for loading from cpt files, for example
     def load_state(self, state):
-        self._state = state
+        self.state = state
         log.debug('Loaded state:{!r}'.format(state))
         #self.printState()
 
@@ -146,36 +147,15 @@ class System:
 
     @property
     def n_compartments(self):
-        return len(self._compartment_lengths)
+        return len(self.compartment_lengths)
 
     @property
     def rxn_rates(self):
-        return self._state['rates']['reaction']
+        return self.state['rates']['reaction']
 
     @property
     def diffusion_rates(self):
-        return self._state['rates']['diffusion']
-
-    @property
-    def compartment_bounds(self):
-        return self._compartment_bounds
-
-    @property
-    def compartment_lengths(self):
-        return self._compartment_lengths
-
-    @property
-    def species(self):
-        return self._species
-
-    @property
-    def reactions(self):
-        return self._reactions
-
-    # State properties
-    @property
-    def state(self):
-        return self._state
+        return self.state['rates']['diffusion']
 
     @property
     def n_species(self):
@@ -189,15 +169,17 @@ class System:
 
     @time.setter
     def time(self, value):
-        self._state['time'] = value
+        self.state['time'] = value
 
     @property
     def propensity(self):
         if self._propensity is None:
-            self._propensity = Propensity(self.state)
+            if self.state is not None:
+                self._propensity = Propensity(self.state)
 
         return self._propensity
 
     @property
     def alpha(self):
-        return self.propensity.alpha
+        if self.propensity is not None:
+            return self.propensity.alpha

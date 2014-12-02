@@ -33,6 +33,9 @@ class PropensityDiffTests(PropensityCoreTests):
 
         prop = self.prop
 
+        assert prop.specie_cnt == prop.diff.shape[0]
+        assert prop.n_compartments == prop.diff.shape[1]
+
         assert prop.diff_prop.shape[0] == 2 * prop.diff.shape[0]
         assert prop.diff_prop.shape[1] == prop.diff.shape[1]
 

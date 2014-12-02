@@ -35,6 +35,7 @@ class SimManager:
         self.max_total_time = None
         self.process_config()
 
+        self._state = None
         self.n_iter = None
 
     # Initialize system from parameter file
@@ -46,6 +47,7 @@ class SimManager:
     def load_state(self, state):
         n_iter = state.pop('n_iter')
         self.n_iter = n_iter
+
         self.system.load_state(state)
 
     def run(self):
@@ -108,7 +110,8 @@ class SimManager:
 
     @property
     def state(self):
-        state = self.system.state
-        state['n_iter'] = self.n_iter
+        if self._state is None:
+            self._state = self.system.state
+            self._state['n_iter'] = self.n_iter
 
-        return state
+        return self._state
