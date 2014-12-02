@@ -1,2 +1,4 @@
 *.pyc
 *.pyo
+examples/*/*.cpt
+examples/*/*.dat
