@@ -1,0 +1,26 @@
+#!/usr/local/anaconda/bin/python2.7
+
+from __future__ import division, print_function
+
+import logging, argparse, traceback
+log = logging.getLogger('ssa_init')
+
+import ssa
+import work_managers
+#from work_managers import make_work_manager
+
+parser = argparse.ArgumentParser('ssa_init', description='preprocess config files, initialize new simulation')
+parser.add_argument('-p', '--paramfile', metavar='PARAMFILE', dest='paramfile', default='params.cfg',
+                    help='Initialize simulation parameters from PARAMFILE')
+ssa.rc.add_args(parser)
+work_managers.environment.add_wm_args(parser)
+
+args = parser.parse_args()
+ssa.rc.process_args(args)
+
+system = ssa.rc.get_system()
+sim_manager = ssa.rc.get_sim_manager()
+data_manager = ssa.rc.get_data_manager()
+
+sim_manager.initialize(args.paramfile)
+data_manager.dump_state()
