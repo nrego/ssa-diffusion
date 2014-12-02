@@ -7,7 +7,6 @@ from __future__ import division, print_function; __metaclass__ = type
 
 import numpy
 from numpy.random import random as rand
-import sim
 import ssa
 
 import logging

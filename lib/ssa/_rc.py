@@ -150,8 +150,8 @@ class SysCtl:
         return self._sim_manager
 
     def new_sim_manager(self):
-        import sim
-        sim_manager = sim.sim_manager.SimManager(rc=self)
+        import sim_manager
+        sim_manager = sim_manager.SimManager(rc=self)
         log.debug('loaded simulation manager {!r}'.format(sim_manager))
 
         return sim_manager
@@ -163,8 +163,8 @@ class SysCtl:
         return self._data_manager
 
     def new_data_manager(self):
-        import sim
-        data_manager = sim.data_manager.DataManager()
+        import data_manager
+        data_manager = data_manager.DataManager()
         log.debug('loaded data manager {!r}'.format(data_manager))
 
         return data_manager
@@ -176,8 +176,8 @@ class SysCtl:
         return self._system
 
     def new_system(self):
-        import sim
-        system = sim.system.System(rc=self)
+        import system
+        system = system.System(rc=self)
         log.debug('loaded system {!r}'.format(system))
 
         return system

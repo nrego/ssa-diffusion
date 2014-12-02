@@ -12,7 +12,8 @@ import logging
 log = logging.getLogger('propensity')
 
 class Propensity:
-    '''Class to encapsulate system state, using numpy arrays'''
+    '''Class to encapsulate system state, using numpy arrays
+       Expects that all species keys from state are sorted (according to hash order)'''
 
     def __init__(self, state):
 
