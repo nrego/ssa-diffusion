@@ -8,6 +8,8 @@ from __future__ import division, print_function; __metaclass__ = type
 import numpy
 from collections import OrderedDict
 
+import ssa
+
 from propensity import Propensity
 
 import logging
@@ -42,6 +44,20 @@ class ReactionSchema:
                 raise ValueError("product {!r} not found".format(product))
 
         return True
+
+    # Return (species_cnt,) array of stoichiometric changes after reaction,
+    # indexed according to 'species'
+    def get_stoichiometry(self, species):
+
+        stoic_arr = numpy.zeros((len(species)))
+
+        for i, specie in enumerate(species):
+            if specie in self.reactants:
+                stoic_arr[i] -= 1
+            if specie in self.products:
+                stoic_arr[i] += 1
+
+        return stoic_arr
 
 
 class System:
@@ -79,10 +95,10 @@ class System:
         for rxn_name in sorted(reactions.keys()):
             rxn_data = config.require(['system', 'spec', 'reactions', rxn_name])
 
-            rxn = ReactionSchema(rxn_name, rxn_data)
-            rxn.check_reaction(self.species)
-            self.reactions.append(rxn)
-            self.reaction_names.append(rxn.name)
+            rxn_schema = ReactionSchema(rxn_name, rxn_data)
+            rxn_schema.check_reaction(self.species)
+            self.reactions.append(rxn_schema)
+            self.reaction_names.append(rxn_schema.name)
 
         assert self.reaction_names == sorted(self.reaction_names)
 
@@ -164,12 +180,12 @@ class System:
         for specie, n in self.n_species.items():
             self.rc.pstatus('  {!r}: {!r}'.format(specie, n))
 
-        self.rc.pstatus('Compartments:')
+        self.rc.pstatus('Compartments (mm):')
         self.rc.pstatus('  N compartments: {!r}'.format(self.n_compartments))
         self.rc.pstatus('  Compartment bounds: {!r}'.format(self.compartment_bounds))
         self.rc.pstatus('  Compartment lengths: {!r}'.format(self.compartment_lengths))
 
-        self.rc.pstatus('Rates:')
+        self.rc.pstatus('Rates (1/s):')
         self.rc.pstatus('  Species diffusion:')
         for specie, diffusion in self.diffusion_rates.items():
             self.rc.pstatus('    {!r}: d = {!r}'.format(specie, diffusion))
@@ -225,7 +241,7 @@ class System:
     def propensity(self):
         if self._propensity is None:
             if self.state is not None:
-                self._propensity = Propensity(self.state)
+                self._propensity = Propensity(self.state, self.reactions)
 
         return self._propensity
 

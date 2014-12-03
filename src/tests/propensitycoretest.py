@@ -1,3 +1,8 @@
+'''
+Created on Dec 1, 2014
+
+@author: Nick Rego
+'''
 from __future__ import division, print_function; __metaclass__ = type
 
 from propensity import Propensity
@@ -17,7 +22,7 @@ class PropensityCoreTests:
         prop = self.prop
 
         assert prop.n_species.shape[0] == len(prop.species)
-        assert prop.n_species.shape[1] == prop.n_compartments == self.expected_n_compartments
+        assert prop.n_species.shape[1] == prop.compartment_cnt == self.expected_compartment_cnt
         assert numpy.array_equal(prop.n_species, self.expected_n_species)
 
     def test_alpha_sum_init_correctly(self):
@@ -34,7 +39,7 @@ class PropensityDiffTests(PropensityCoreTests):
         prop = self.prop
 
         assert prop.specie_cnt == prop.diff.shape[0]
-        assert prop.n_compartments == prop.diff.shape[1]
+        assert prop.compartment_cnt == prop.diff.shape[1]
 
         assert prop.diff_prop.shape[0] == 2 * prop.diff.shape[0]
         assert prop.diff_prop.shape[1] == prop.diff.shape[1]
@@ -47,7 +52,7 @@ class PropensityDiffTests(PropensityCoreTests):
 
         assert prop.diff_cum.ndim == 1
 
-        assert prop.diff_cum.size == (2*len(prop.species)*prop.n_compartments)
+        assert prop.diff_cum.size == (2*len(prop.species)*prop.compartment_cnt)
         assert numpy.array_equal(prop.diff_cum, self.expected_diff_cum)
 
     def test_alpha_diff_initialized_correctly(self):
@@ -71,7 +76,7 @@ class PropensityRxnTests(PropensityCoreTests):
 
 # Generate an expected, updated n_species and diff_prop
 # After moving species i  to the right - for corner and intermed cases
-# Only works with n_compartments >= 4
+# Only works with compartment_cnt >= 4
 def gen_diff_cases(diff_prop, diff, n_species, specie_idx):
 
     i = specie_idx*2

@@ -1,7 +1,7 @@
 '''
 Created on Nov 26, 2014
 
-YAML config, adapted from westpa code (Zwier, Chong, et al)
+YAML config, adapted from WESTPA code (Zwier, Chong, et al)
 
 
 '''

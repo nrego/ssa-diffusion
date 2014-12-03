@@ -1,9 +1,10 @@
 '''
 Created on Nov 26, 2014
 
-@author: nick
+@author: Nick Rego
 
 Global run control routines
+modeled after WESTPA (Zwier, et al) _rc.py
 '''
 from __future__ import division, print_function; __metaclass__ = type
 
@@ -30,7 +31,7 @@ class SysCtl:
         self._data_manager = None
         self._system = None
         self.work_manager = SerialWorkManager()
-        # Rc config
+        #  Rc config
         self.config = YAMLConfig()
         self.process_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 

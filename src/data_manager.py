@@ -3,7 +3,7 @@ Created on Nov 26, 2014
 
 Manages output
 
-@author: nick
+@author: Nick Rego
 '''
 from __future__ import division, print_function; __metaclass__ = type
 

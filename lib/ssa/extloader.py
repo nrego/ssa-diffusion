@@ -1,7 +1,7 @@
 '''
 Created on Nov 26, 2014
 
-@author: nick
+Adapted from WESTPA code (Zwier et al)
 '''
 
 import sys, imp

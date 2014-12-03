@@ -1,3 +1,10 @@
+'''
+Created on Dec 1, 2014
+
+Unit tests for propensities
+
+@author: Nick Rego
+'''
 from __future__ import division, print_function; __metaclass__ = type
 
 from propensitycoretest import gen_diff_cases, PropensityDiffTests
@@ -15,7 +22,7 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
                        }
              }
 
-    expected_n_compartments = 4
+    expected_compartment_cnt = 4
 
     expected_n_species = numpy.array([state['n_species']['A'],
                                       state['n_species']['B']])
@@ -53,6 +60,8 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
 
         assert numpy.array_equal(prop.diff_prop, testcase[0]), "Expected:\n {!r}, \ngot:\n {!r}".format(testcase[0], prop.diff_prop)
         assert numpy.array_equal(prop.n_species, testcase[1]), "Expected:\n {!r}, \ngot:\n {!r}".format(testcase[1], prop.n_species)
+
+        assert numpy.array_equal(prop.diff_cum, testcase[0].cumsum())
 
         assert prop.alpha_diff == expected_alpha_diff, 'Alpha_diff wrong after diffusion!'
         assert prop.alpha_rxn == alpha_rxn_before, 'Alpha reaction changed after diffusion'
