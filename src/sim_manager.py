@@ -12,6 +12,7 @@ import ssa
 import logging
 log = logging.getLogger('simulation manager')
 
+
 class SimManager:
     '''
     High level simulation task manager

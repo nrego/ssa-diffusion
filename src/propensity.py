@@ -51,10 +51,19 @@ class Propensity:
         self.diff_length = None
 
         # Constant array of differential reaction
-        #   propensities - depends on stoichiometry
+        #   propensities - i.e. how does rxn
+        #   i occurrence affect the propensity
+        #   of all other rxns (presumably only
+        #   in the relevant column)
         #   of relevant reaction and reaction rate
-        # shape: (rxn_cnt, specie_cnt)
+        # shape: (rxn_cnt, rxn_cnt)
         self.rxn = None
+        # Constant array of differential reaction
+        #   stoichiometries - similar to self.rxn,
+        #   but for updating n_species after reaction
+        #   occurs
+        # shape: (rxn_cnt, specie_cnt)
+        self.rxn_stoic = None
         # Reaction propensities, per compartment
         # shape: (rxn_count, compartment_cnt)
         self.rxn_prop = None
@@ -80,6 +89,7 @@ class Propensity:
         log.debug('N Species: {!r}'.format(self.n_species))
 
         self.compartment_cnt = self.n_species.shape[1]
+        assert self.compartment_cnt > 0
         self.rxn_cnt = len(self.reactions)
         self.specie_cnt = len(self.species)
 
@@ -107,20 +117,37 @@ class Propensity:
         log.debug('Diff propensity array: {!r}'.format(self.diff_prop))
 
         self.diff_cum = self.diff_prop.cumsum()
-        self.diff_length = len(self.diff_cum)
+        self.diff_length = self.diff_cum.size
 
         # Reaction arrays
-        self.rxn = numpy.zeros((self.rxn_cnt, self.specie_cnt),
+        self.rxn = numpy.zeros((self.rxn_cnt, self.rxn_cnt),
                                dtype=numpy.float32)
+        self.rxn_stoic = numpy.zeros((self.rxn_cnt, self.specie_cnt),
+                                     dtype=numpy.float32)
+        self.rxn_prop = numpy.zeros((self.rxn_cnt, self.compartment_cnt),
+                                    dtype=numpy.float32)
 
         for i, reaction in enumerate(self.reactions):
             rxn_schema = rxn_schemas[i]
             rate = self.state['rates']['reaction'][reaction]
             rxn_stoic = rxn_schema.get_stoichiometry(self.species)
-
+            rxn_prop = rxn_schema.get_propensity(self.species) * rate
+            self.rxn_stoic[i] = rxn_stoic
             self.rxn[i] = rxn_stoic * rate
 
-        self.rxn_prop = self.rxn.dot(self.n_species)
+            for j, r in enumerate(self.reactions):
+                other_rxn_schema = rxn_schemas[j]
+                delta_rxn = other_rxn_schema.prop_change(rxn_stoic, self.species)
+
+                self.rxn[i, j] = delta_rxn * rate
+
+            for k, specie in enumerate(self.species):
+                self.rxn_prop[i] = self.n_species[k] * rxn_prop[k]
+
+        self.rxn_cum = self.rxn_prop.cumsum()
+        self.rxn_length = self.rxn_cum.size
+
+        log.info('Propensity succesfully initialized from state')
 
     # Choose appropriate reaction, based on rand = r*alpha (r is [0,1)])
     def choose_rxn(self, rand):
@@ -138,8 +165,10 @@ class Propensity:
 
         else:
             rand -= self.alpha_diff
+            idx = (rand < self.rxn_cum).argmax()
+            assert idx < self.rxn_length
             #log.debug('Choosing a reaction...')
-            raise NotImplementedError
+            self.run_rxn(idx)
 
     # Run a diffusion reaction according to idx corresponding to appropriate
     # Diffusion in diff_prop.
@@ -190,6 +219,29 @@ class Propensity:
         #log.debug('diff prop after: {!r}'.format(self.diff_prop))
 
         self.diff_cum = self.diff_prop.cumsum()
+        self.rxn_cum = self.rxn_prop.cumsum()  # Ugh
+
+    def run_rxn(self, idx):
+        rxn_idx = int(idx / (self.compartment_cnt))  # reaction index
+        compartment_idx = idx % (self.compartment_cnt)  # compartment
+
+        # Change in n_species for compartment
+        #   according to reaction stoichiometry
+        stoic = self.rxn_stoic[rxn_idx]
+        self.n_species[:, compartment_idx] += stoic
+
+        # Adjust diffusion propensities for
+        #   species in this compartment
+        delta_diff = self.diff[:, compartment_idx] * stoic
+        self.diff_prop[:, compartment_idx] += delta_diff
+
+        # Adjust rxn propensities in this
+        #   compartment
+        rxn_delta = self.rxn[rxn_idx]  # rxn_cnt size array
+        self.rxn_prop[:, compartment_idx] += rxn_delta
+
+        self.diff_cum = self.diff_prop.cumsum()
+        self.rxn_cum = self.rxn_prop.cumsum()
 
     @property
     def alpha_diff(self):

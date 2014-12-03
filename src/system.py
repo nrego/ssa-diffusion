@@ -30,6 +30,9 @@ def order_state(state):
                         key=lambda t: t[0]))
 
         diff_rates_unsorted = state['rates']['diffusion']
+        for key, val in diff_rates_unsorted.iteritems():
+            diff_rates_unsorted[key] = numpy.array(val)
+
         state['rates']['diffusion'] = \
             OrderedDict(sorted(diff_rates_unsorted.items(),
                         key=lambda t: t[0]))
@@ -83,6 +86,36 @@ class ReactionSchema:
                 stoic_arr[i] += 1
 
         return stoic_arr
+
+    # Return species-indexed array of how many
+    #   reactant species are involved in this reaction
+    #
+    # To get the propensity (in a column), multiply
+    #   the number of relevent species together,
+    #   times reaction rate
+    def get_propensity(self, species):
+
+        prop_arr = numpy.zeros((len(species)))
+
+        for i, specie in enumerate(species):
+            if specie in self.reactants:
+                prop_arr[i] += 1
+
+        return prop_arr
+
+    # How would this reaction's propensity change
+    #   if the other reaction (other_rxn_schema)
+    #   occurred?
+    #   Note - need to multiple by this reaction's
+    #   rate when building propensity
+    def prop_change(self, stoic_change, species):
+
+        delta_prop = 0
+        for i, specie in enumerate(species):
+            if specie in self.reactants:
+                delta_prop += stoic_change[i]
+
+        return delta_prop
 
 
 class System:
@@ -169,7 +202,8 @@ class System:
         # (D is diff coef, h is compartment length)
         if diff_params:
             squared_dist = numpy.power(self.compartment_lengths, 2)
-            for specie in diff_params.keys() and self.species:
+            diff_species = diff_params.keys()
+            for specie in filter(lambda i: i in diff_species, self.species):
                 diff_rates = diff_params[specie]/squared_dist
                 rates['diffusion'][specie] = diff_rates
 

@@ -97,6 +97,10 @@ class TestPropensityReactionOnly(PropensityRxnTests):
              }
 
     species = sorted(state['n_species'].keys())
+    reactions = sorted(state['rates']['reaction'].keys())
+
+    rxn_rates = [state['rates']['reaction'][rxn]
+                 for rxn in reactions]
 
     B_deg = {'reactants': ['A', 'B'],
              'products': ['A']}
@@ -110,3 +114,21 @@ class TestPropensityReactionOnly(PropensityRxnTests):
 
     expected_n_species = numpy.array([state['n_species']['A'],
                                       state['n_species']['B']])
+
+    # (rxn_cnt, specie_cnt) -
+    # constant arr of stoich changes for
+    # each species during given reaction
+    expected_rxn = numpy.array([[0,    1],
+                                [0, -0.1]])
+
+    expected_rxn_stoic = numpy.array([[-0.1, 0],
+                                      [0.1,  0]])
+
+    for row in xrange(expected_rxn.shape[0]):
+        expected_rxn[row] *= rxn_rates[row]
+
+    # (rxn_cnt, compartment_cnt)
+    # Initial reaction propensities,
+    # per compartment
+    expected_rxn_prop = numpy.array([[0],
+                                     [1]])
