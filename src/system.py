@@ -6,11 +6,42 @@ Created on Nov 26, 2014
 from __future__ import division, print_function; __metaclass__ = type
 
 import numpy
+from collections import OrderedDict
 
 from propensity import Propensity
 
 import logging
 log = logging.getLogger('system')
+
+
+class ReactionSchema:
+
+    def __init__(self, rxn_name, rxn_data):
+        self.name = rxn_name
+
+        try:
+            self.reactants = [reactant for reactant in sorted(rxn_data['reactants'])]
+        except KeyError:
+            self.reactants = []
+        try:
+            self.products = [product for product in sorted(rxn_data['products'])]
+        except KeyError:
+            self.products = []
+
+    def __repr__(self):
+        return 'Reaction: {}, reactants: {!r}, products: {!r}'.format(self.name, self.reactants, self.products)
+
+    # Check that all species involved in this reaction are in list 'species'
+    def check_reaction(self, species):
+
+        for reactant in self.reactants:
+            if reactant not in species:
+                raise ValueError("reactant {!r} not found".format(reactant))
+        for product in self.products:
+            if product not in species:
+                raise ValueError("product {!r} not found".format(product))
+
+        return True
 
 
 class System:
@@ -40,7 +71,21 @@ class System:
         self.compartment_lengths = numpy.diff(self.compartment_bounds)
         self.species = config.get(['system', 'spec', 'species'], [])
         self.species.sort()
-        self.reactions = config.get(['system', 'spec', 'reactions'], {})
+        reactions = config.get(['system', 'spec', 'reactions'], {})
+
+        self.reactions = []
+        self.reaction_names = []
+
+        for rxn_name in sorted(reactions.keys()):
+            rxn_data = config.require(['system', 'spec', 'reactions', rxn_name])
+
+            rxn = ReactionSchema(rxn_name, rxn_data)
+            rxn.check_reaction(self.species)
+            self.reactions.append(rxn)
+            self.reaction_names.append(rxn.name)
+
+        assert self.reaction_names == sorted(self.reaction_names)
+
 
     def __init__(self, rc=None):
         self.rc = rc or ssa.rc
@@ -50,6 +95,7 @@ class System:
         self.compartment_lengths = None
         self.species = None
         self.reactions = None
+        self.reaction_names = None
         self.process_config()
 
         # system state
@@ -66,9 +112,11 @@ class System:
         self.rc.pstatus('Initializing system ...')
 
         # Initialize rates
+        reaction_rates = {reaction: 0.0 for reaction in self.reaction_names}
+        diffusion_rates = {specie: [0.0 for i in xrange(self.n_compartments)] for specie in self.species}
         rates = {
-            'reaction': {reaction: 0.0 for reaction in self.reactions.keys()},
-            'diffusion': {specie: [0.0 for i in xrange(self.n_compartments)] for specie in self.species}
+            'reaction': OrderedDict(sorted(reaction_rates.items(), key=lambda t: t[0])),
+            'diffusion': OrderedDict(sorted(diffusion_rates.items(), key=lambda t: t[0]))
         }
 
         rate_params = config.get(['params', 'reaction'])
@@ -85,10 +133,12 @@ class System:
                 diff_rates = diff_params[specie]/squared_dist
                 rates['diffusion'][specie] = diff_rates
 
+        species_arr = {specie: [0 for i in self.compartment_lengths]
+                                    for specie in self.species}
+
         # Initialize 'state' - i.e. what changes as simulation runs
         self.state = {'time': 0.0,
-                      'n_species': {specie: [0 for i in self.compartment_lengths]
-                                    for specie in self.species},
+                      'n_species': OrderedDict(sorted(species_arr.items(), key=lambda t: t[0])),
                       'rates': rates
                       }
 
