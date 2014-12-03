@@ -10,14 +10,15 @@ Selects and executes proper reaction from input random
 from __future__ import division, print_function; __metaclass__ = type
 
 import numpy
-import ssa
 
 import logging
 log = logging.getLogger('propensity')
 
+
 class Propensity:
     '''Class to encapsulate system state, using numpy arrays
-       Expects that all species keys from state are sorted (according to hash order)'''
+       Expects that all species keys from state are sorted
+       (according to hash order)'''
 
     def __init__(self, state, rxn_schemas=None):
 
@@ -43,8 +44,10 @@ class Propensity:
         # shape: (specie_cnt, compartment_cnt)
         self.diff_prop = None
 
-        #Cumulative sum for diff propensities
+        # Cumulative sum for diff propensities
+        # lol cum
         self.diff_cum = None
+        # 2 * specie_cnt * compartment_cnt
         self.diff_length = None
 
         # Constant array of differential reaction
@@ -70,6 +73,7 @@ class Propensity:
         self.species = sorted(self.state['n_species'].keys())
         self.reactions = sorted(self.state['rates']['reaction'].keys())
         log.debug('Species: {!r}'.format(self.species))
+        log.debug('Reactions: {!r}'.format(self.reactions))
 
         self.n_species = numpy.array(self.state['n_species'].values(),
                                      dtype=numpy.uint32)
@@ -80,9 +84,12 @@ class Propensity:
         self.specie_cnt = len(self.species)
 
         assert (self.species == self.state['n_species'].keys() ==
-                self.state['rates']['diffusion'].keys()),'Species are not ordered correctly'
+                self.state['rates']['diffusion'].keys()), \
+            'Species are not ordered correctly'
+
         assert (self.reactions ==
-                self.state['rates']['reaction'].keys()), 'Reactions are not ordered correctly'
+                self.state['rates']['reaction'].keys()), \
+            'Reactions are not ordered correctly'
 
         self.diff = numpy.array(self.state['rates']['diffusion'].values(),
                                 dtype=numpy.float32)
@@ -100,6 +107,7 @@ class Propensity:
         log.debug('Diff propensity array: {!r}'.format(self.diff_prop))
 
         self.diff_cum = self.diff_prop.cumsum()
+        self.diff_length = len(self.diff_cum)
 
         # Reaction arrays
         self.rxn = numpy.zeros((self.rxn_cnt, self.specie_cnt),
@@ -114,10 +122,10 @@ class Propensity:
 
         self.rxn_prop = self.rxn.dot(self.n_species)
 
-        self.diff_length = len(self.diff_cum)
-
     # Choose appropriate reaction, based on rand = r*alpha (r is [0,1)])
     def choose_rxn(self, rand):
+        #TODO: Watch out for string 'format' calls in logger - really
+        # fucking slow for oft-repeated loops
         #log.debug('r*a = {:.4f}'.format(rand))
 
         if rand <= self.alpha_diff:
@@ -149,8 +157,10 @@ class Propensity:
         # Illegal species movement, but handle gracefully for sake of unit tests
         if self.n_species[specie_idx, col_from] == 0:
             log.info("Trying to move a species where one doesn't exist:")
-            log.info("Idx: {}, specie_idx:{}, col: {}".format(idx, specie_idx, col_from))
-            log.info("going to next iteration. N species: {!r}".format(self.n_species))
+            log.info("Idx: {}, specie_idx:{}, col: {}"
+                     .format(idx, specie_idx, col_from))
+            log.info("going to next iteration. N species: {!r}"
+                     .format(self.n_species))
 
             return
 

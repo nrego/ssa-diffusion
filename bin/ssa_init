@@ -7,6 +7,7 @@ log = logging.getLogger('ssa_init')
 
 import ssa
 import work_managers
+# huh?
 #from work_managers import make_work_manager
 
 parser = argparse.ArgumentParser('ssa_init', description='preprocess config files, initialize new simulation')

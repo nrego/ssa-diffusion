@@ -18,7 +18,7 @@ except ImportError:
 import ssa
 import numpy
 
-# Default - flush data buffer every 500 iterations
+# Default - data buffer flush interval iterations
 BUFFER_FLUSH = 50
 
 class DataManager:

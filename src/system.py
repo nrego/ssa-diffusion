@@ -16,22 +16,47 @@ import logging
 log = logging.getLogger('system')
 
 
+# Order supplied state by keys in-place
+def order_state(state):
+
+    try:
+        n_species_unsorted = state['n_species']
+        state['n_species'] = OrderedDict(sorted(n_species_unsorted.items(),
+                                         key=lambda t: t[0]))
+
+        reaction_rates_unsorted = state['rates']['reaction']
+        state['rates']['reaction'] = \
+            OrderedDict(sorted(reaction_rates_unsorted.items(),
+                        key=lambda t: t[0]))
+
+        diff_rates_unsorted = state['rates']['diffusion']
+        state['rates']['diffusion'] = \
+            OrderedDict(sorted(diff_rates_unsorted.items(),
+                        key=lambda t: t[0]))
+
+    except KeyError:
+        raise ValueError("Appears your state is incomplete...")
+
+
 class ReactionSchema:
 
     def __init__(self, rxn_name, rxn_data):
         self.name = rxn_name
 
         try:
-            self.reactants = [reactant for reactant in sorted(rxn_data['reactants'])]
+            self.reactants = [reactant for reactant
+                              in sorted(rxn_data['reactants'])]
         except KeyError:
             self.reactants = []
         try:
-            self.products = [product for product in sorted(rxn_data['products'])]
+            self.products = [product for product
+                             in sorted(rxn_data['products'])]
         except KeyError:
             self.products = []
 
     def __repr__(self):
-        return 'Reaction: {}, reactants: {!r}, products: {!r}'.format(self.name, self.reactants, self.products)
+        return 'Reaction: {}, reactants: {!r}, products: {!r}' \
+               .format(self.name, self.reactants, self.products)
 
     # Check that all species involved in this reaction are in list 'species'
     def check_reaction(self, species):
@@ -102,7 +127,6 @@ class System:
 
         assert self.reaction_names == sorted(self.reaction_names)
 
-
     def __init__(self, rc=None):
         self.rc = rc or ssa.rc
 
@@ -128,11 +152,11 @@ class System:
         self.rc.pstatus('Initializing system ...')
 
         # Initialize rates
-        reaction_rates = {reaction: 0.0 for reaction in self.reaction_names}
-        diffusion_rates = {specie: [0.0 for i in xrange(self.n_compartments)] for specie in self.species}
+
         rates = {
-            'reaction': OrderedDict(sorted(reaction_rates.items(), key=lambda t: t[0])),
-            'diffusion': OrderedDict(sorted(diffusion_rates.items(), key=lambda t: t[0]))
+            'reaction': {reaction: 0.0 for reaction in self.reaction_names},
+            'diffusion': {specie: [0.0 for i in xrange(self.n_compartments)]
+            for specie in self.species}
         }
 
         rate_params = config.get(['params', 'reaction'])
@@ -149,12 +173,13 @@ class System:
                 diff_rates = diff_params[specie]/squared_dist
                 rates['diffusion'][specie] = diff_rates
 
-        species_arr = {specie: [0 for i in self.compartment_lengths]
-                                    for specie in self.species}
-
         # Initialize 'state' - i.e. what changes as simulation runs
         self.state = {'time': 0.0,
-                      'n_species': OrderedDict(sorted(species_arr.items(), key=lambda t: t[0])),
+
+                      'n_species': {specie:
+                      [0 for i in self.compartment_lengths]
+                      for specie in self.species},
+
                       'rates': rates
                       }
 
@@ -166,7 +191,10 @@ class System:
                     if type(val) == int:
                         n_arr[i] = val
 
-            self.state['n_species'][specie] = numpy.array(n_arr, dtype=numpy.uint32)
+            self.state['n_species'][specie] = numpy.array(n_arr,
+                                                          dtype=numpy.uint32)
+
+        order_state(self.state)
 
         self.rc.pstatus('...Done\n')
         self.rc.pflush()
@@ -197,6 +225,7 @@ class System:
 
     # Simply reset state - for loading from cpt files, for example
     def load_state(self, state):
+        order_state(state)
         self.state = state
         log.debug('Loaded state:{!r}'.format(state))
         #self.printState()
@@ -241,6 +270,7 @@ class System:
     def propensity(self):
         if self._propensity is None:
             if self.state is not None:
+                order_state(self.state)  # Ensure ordered keys
                 self._propensity = Propensity(self.state, self.reactions)
 
         return self._propensity

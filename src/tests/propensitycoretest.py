@@ -5,14 +5,18 @@ Created on Dec 1, 2014
 '''
 from __future__ import division, print_function; __metaclass__ = type
 
+from system import order_state
 from propensity import Propensity
+
 import numpy
+import nose
 
 
 class PropensityCoreTests:
 
     def setUp(self):
-        self.prop = Propensity(self.state)
+        order_state(self.state)
+        self.prop = Propensity(self.state, self.rxn_schemas)
 
     def tearDown(self):
         del self.prop
@@ -22,7 +26,9 @@ class PropensityCoreTests:
         prop = self.prop
 
         assert prop.n_species.shape[0] == len(prop.species)
-        assert prop.n_species.shape[1] == prop.compartment_cnt == self.expected_compartment_cnt
+        assert prop.n_species.shape[1] == prop.compartment_cnt == \
+            self.expected_compartment_cnt
+
         assert numpy.array_equal(prop.n_species, self.expected_n_species)
 
     def test_alpha_sum_init_correctly(self):
@@ -37,12 +43,17 @@ class PropensityDiffTests(PropensityCoreTests):
     def test_diff_arrays_setup_correctly(self):
 
         prop = self.prop
+        expected_diff_shape = (prop.specie_cnt, prop.compartment_cnt)
 
-        assert prop.specie_cnt == prop.diff.shape[0]
-        assert prop.compartment_cnt == prop.diff.shape[1]
+        assert prop.diff.shape == expected_diff_shape, \
+            'Wrong diff shape: expected {!r} but got {!r}' \
+            .format(expected_diff_shape, prop.diff.shape)
 
-        assert prop.diff_prop.shape[0] == 2 * prop.diff.shape[0]
-        assert prop.diff_prop.shape[1] == prop.diff.shape[1]
+        expected_diff_prop_shape = (2*prop.diff.shape[0], prop.diff.shape[1])
+
+        assert prop.diff_prop.shape == expected_diff_prop_shape, \
+            'Wrong diff_prop shape: expected {!r} but got {!r}' \
+            .format(expected_diff_prop_shape, prop.diff_prop.shape)
 
         assert numpy.array_equal(prop.diff, self.expected_diff)
         assert numpy.array_equal(prop.diff_prop, self.expected_diff_prop)
@@ -54,6 +65,7 @@ class PropensityDiffTests(PropensityCoreTests):
 
         assert prop.diff_cum.size == (2*len(prop.species)*prop.compartment_cnt)
         assert numpy.array_equal(prop.diff_cum, self.expected_diff_cum)
+        assert prop.diff_length == prop.diff_cum.size
 
     def test_alpha_diff_initialized_correctly(self):
         prop = self.prop
@@ -65,13 +77,38 @@ class PropensityRxnTests(PropensityCoreTests):
     '''Reaction tests'''
 
     def test_rxn_arrays_setup_correctly(self):
+
+        prop = self.prop
+        expected_rxn_shape = (prop.rxn_cnt, prop.specie_cnt)
+
+        assert prop.rxn.shape == expected_rxn_shape, \
+            'Wrong diff shape: expected {!r} but got {!r}' \
+            .format(expected_rxn_shape, prop.rxn.shape)
+
+        expected_rxn_prop_shape = (prop.rxn_count, prop.compartment_cnt)
+
+        assert prop.rxn_prop.shape == expected_rxn_prop_shape, \
+            'Wrong diff_prop shape: expected {!r} but got {!r}' \
+            .format(expected_rxn_prop_shape, prop.rxn_prop.shape)
+
+        assert numpy.array_equal(prop.rxn, self.expected_rxn)
+        assert numpy.array_equal(prop.rxn_prop, self.expected_rxn_prop)
+
+    @nose.SkipTest
+    def test_diff_cumulative_array_initialized_correctly(self):
         prop = self.prop
 
-    def test_rxn_cumulative_array_initialized_correctly(self):
-        pass
+        assert prop.diff_cum.ndim == 1
 
-    def test_alpha_rxn_initialized_correctly(self):
-        pass
+        assert prop.diff_cum.size == (2*len(prop.species)*prop.compartment_cnt)
+        assert numpy.array_equal(prop.diff_cum, self.expected_diff_cum)
+        assert prop.diff_length == prop.diff_cum.size
+
+    @nose.SkipTest
+    def test_alpha_diff_initialized_correctly(self):
+        prop = self.prop
+
+        assert prop.alpha_diff == self.expected_alpha_diff
 
 
 # Generate an expected, updated n_species and diff_prop

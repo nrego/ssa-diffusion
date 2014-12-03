@@ -7,7 +7,10 @@ Unit tests for propensities
 '''
 from __future__ import division, print_function; __metaclass__ = type
 
-from propensitycoretest import gen_diff_cases, PropensityDiffTests
+from propensitycoretest import gen_diff_cases, PropensityDiffTests, PropensityRxnTests
+
+from system import ReactionSchema
+
 import numpy
 import nose
 
@@ -21,6 +24,8 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
                        'reaction': {}
                        }
              }
+
+    rxn_schemas = None
 
     expected_compartment_cnt = 4
 
@@ -74,3 +79,34 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
 
         for testidx, idx in enumerate(indices):
             yield self.check_move, testidx, idx
+
+
+#@nose.SkipTest
+class TestPropensityReactionOnly(PropensityRxnTests):
+
+    # Rxns:
+    # A + B -> A
+    # 0 -> B
+    state = {'n_species': {'A': [10],
+                           'B': [0]},
+             'rates': {'diffusion': {'A': [0],
+                                     'B': [0]},
+                       'reaction': {'B_deg': 0.1,
+                                    'B_prod': 1}
+                       }
+             }
+
+    species = sorted(state['n_species'].keys())
+
+    B_deg = {'reactants': ['A', 'B'],
+             'products': ['A']}
+    B_prod = {'reactants': [],
+              'products': ['B']}
+
+    rxn_schemas = [ReactionSchema('B_deg', B_deg),
+                   ReactionSchema('B_prod', B_prod)]
+
+    expected_compartment_cnt = 1
+
+    expected_n_species = numpy.array([state['n_species']['A'],
+                                      state['n_species']['B']])
