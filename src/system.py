@@ -225,9 +225,11 @@ class System:
         for specie, n_arr in self.n_species.items():
             conf_arr = config.get(['params', 'n_species', specie])
             if conf_arr:
-                for i, val in enumerate(conf_arr):
-                    if type(val) == int:
+                for i, val in conf_arr.iteritems():
+                    try:
                         n_arr[i] = val
+                    except IndexError:
+                        raise ValueError("problem with n_species config")
 
             self.state['n_species'][specie] = numpy.array(n_arr,
                                                           dtype=numpy.uint32)

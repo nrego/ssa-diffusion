@@ -36,6 +36,19 @@ class PropensityCoreTests:
 
         assert prop.alpha == prop.alpha_diff + prop.alpha_rxn
 
+    def check_state_params_unchanged(self):
+        prop = self.prop
+
+        assert prop.species == self.species
+        assert prop.reactions == self.reactions
+        assert prop.compartment_cnt == self.expected_compartment_cnt
+
+        numpy.array_equal(prop.rxn_rates, self.rxn_rates)
+        numpy.array_equal(prop.rxn, self.expected_rxn)
+        numpy.array_equal(prop.rxn_stoic, self.expected_rxn_stoic)
+
+        numpy.array_equal(prop.diff, self.expected_diff)
+
 
 class PropensityDiffTests(PropensityCoreTests):
     '''Diffusion tests'''
@@ -112,8 +125,6 @@ class PropensityRxnTests(PropensityCoreTests):
 
 
 # Generate an expected, updated n_species and diff_prop
-# After moving species i  to the right - for corner and intermed cases
-# Only works with compartment_cnt >= 4
 def gen_diff_cases(diff_prop, diff, n_species, specie_idx):
 
     i = specie_idx*2

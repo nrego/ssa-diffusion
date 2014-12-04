@@ -25,6 +25,12 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
                        }
              }
 
+    species = sorted(state['n_species'].keys())
+    reactions = sorted(state['rates']['reaction'].keys())
+
+    rxn_rates = [state['rates']['reaction'][rxn]
+                 for rxn in reactions]
+    rxn_rates = numpy.array(rxn_rates)
     rxn_schemas = None
 
     expected_compartment_cnt = 4
@@ -46,6 +52,9 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
     diff_tests_A = gen_diff_cases(expected_diff_prop, expected_diff, expected_n_species, 0)
     diff_tests_B = gen_diff_cases(expected_diff_prop, expected_diff, expected_n_species, 1)
 
+    expected_rxn = numpy.zeros((0, 2))
+    expected_rxn_stoic = numpy.zeros((0, 2))
+
     expected_alpha_diff = numpy.sum(expected_diff_prop)
 
     def test_alpha_rxn_is_zero(self):
@@ -53,6 +62,8 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
 
         assert prop.alpha_rxn == 0
 
+    # Run diffusion according to certain index, idx,
+    #   check against expected diffusion
     def check_move(self, testidx, idx):
         prop = self.prop
 
@@ -72,6 +83,8 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
         assert prop.alpha_rxn == alpha_rxn_before, 'Alpha reaction changed after diffusion'
 
         assert prop.alpha == alpha_rxn_before + expected_alpha_diff, 'Alpha not updated correctly after diffusion'
+
+        self.check_state_params_unchanged()
 
     def test_diffusion_movements(self):
 
@@ -138,3 +151,51 @@ class TestPropensityReactionOnly(PropensityRxnTests):
     expected_rxn_cum = numpy.array([2, 3])
 
     expected_alpha_rxn = 3
+
+    expected_diff = numpy.zeros((3,1))
+    expected_alpha_diff = 0
+
+    def test_alpha_diff_is_zero(self):
+        prop = self.prop
+
+        assert prop.alpha_diff == 0
+
+    def test_deg_rxn(self):
+        prop = self.prop
+
+        idx = 0
+        expected_n_species = numpy.array([[10],
+                                          [5],
+                                          [1]])
+        expected_rxn_prop = numpy.array([[1],
+                                         [1]])
+        expected_rxn_cum = numpy.array([1, 2])
+        prop.run_rxn(idx)
+
+        numpy.array_equal(prop.n_species, expected_n_species)
+        numpy.array_equal(prop.rxn_prop, expected_rxn_prop)
+        numpy.array_equal(prop.rxn_cum, expected_rxn_cum)
+
+        assert prop.alpha == prop.alpha_rxn == 2
+
+        self.check_state_params_unchanged()
+
+    def test_prod_rxn(self):
+        prop = self.prop
+
+        idx = 1
+        expected_n_species = numpy.array([[10],
+                                          [5],
+                                          [3]])
+        expected_rxn_prop = numpy.array([[3],
+                                         [1]])
+        expected_rxn_cum = numpy.array([3, 4])
+        prop.run_rxn(idx)
+
+        numpy.array_equal(prop.n_species, expected_n_species)
+        numpy.array_equal(prop.rxn_prop, expected_rxn_prop)
+        numpy.array_equal(prop.rxn_cum, expected_rxn_cum)
+
+        assert prop.alpha == prop.alpha_rxn == 4
+
+        self.check_state_params_unchanged()

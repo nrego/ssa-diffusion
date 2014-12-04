@@ -23,7 +23,7 @@ class Propensity:
        My attribute naming scheme, as much as it exists,
              is kind of shitty - sorry about that'''
 
-    def __init__(self, state, rxn_schemas=None):
+    def __init__(self, state, rxn_schemas=None, prop_mask=None):
 
         self.state = state
         self.species = None
@@ -104,12 +104,28 @@ class Propensity:
         self._alpha_diff = None
         self._alpha_rxn = None
 
-        self.init_propensities(rxn_schemas)
+        # User specified masks
+        #   to optionally restrict
+        #   diffusions or reactions
+        #   to specific compartments
+        #  numpy bool arrays, shape
+        #  (specie_cnt, compartment_cnt) or
+        #  (rxn_cnt, compartment_cnt), resp.
+        self.prop_diff_mask = None
+        self.prop_rxn_mask = None
 
-    def init_propensities(self, rxn_schemas):
+        self.init_propensities(rxn_schemas, prop_mask)
+
+    def init_propensities(self, rxn_schemas, prop_mask=None):
         '''Initialize reaction propensities'''
 
         log.info('Loading propensity from state')
+
+        if prop_mask is not None:
+            if 'diffusion' in prop_mask.keys():
+                self.prop_diff_mask = prop_mask['diffusion']
+            if 'reaction' in prop_mask.keys():
+                self.prop_rxn_mask = prop_mask['reaction']
 
         self.rxn_schemas = rxn_schemas
 
@@ -306,7 +322,7 @@ class Propensity:
             rxn = self.rxn[rxn_idx_update]
             mask = self.rxn_mask[rxn_idx_update]
             new_prop = (self.n_species[:, compartment_idx] * rxn)[mask]
-            self.rxn_prop[rxn_idx_update, compartment_idx] = (new_prop * rate)
+            self.rxn_prop[rxn_idx_update, compartment_idx] = (new_prop.prod() * rate)
 
         #self.diff_prop *= self.diff_mask
         self.diff_cum = self.diff_prop.cumsum()
