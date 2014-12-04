@@ -88,11 +88,13 @@ class TestPropensityReactionOnly(PropensityRxnTests):
     # A + B -> A
     # 0 -> B
     state = {'n_species': {'A': [10],
-                           'B': [0]},
+                           'B': [5],
+                           'C': [2]},
              'rates': {'diffusion': {'A': [0],
-                                     'B': [0]},
-                       'reaction': {'B_deg': 0.1,
-                                    'B_prod': 1}
+                                     'B': [0],
+                                     'C': [0]},
+                       'reaction': {'deg': 0.1,
+                                    'prod': 1}
                        }
              }
 
@@ -101,34 +103,41 @@ class TestPropensityReactionOnly(PropensityRxnTests):
 
     rxn_rates = [state['rates']['reaction'][rxn]
                  for rxn in reactions]
+    rxn_rates = numpy.array(rxn_rates)
 
-    B_deg = {'reactants': ['A', 'B'],
-             'products': ['A']}
-    B_prod = {'reactants': [],
-              'products': ['B']}
+    deg = {'reactants': ['A', 'C'],
+           'products': ['A']}
+    prod = {'reactants': [],
+            'products': ['C']}
 
-    rxn_schemas = [ReactionSchema('B_deg', B_deg),
-                   ReactionSchema('B_prod', B_prod)]
+    rxn_schemas = [ReactionSchema('deg', deg),
+                   ReactionSchema('prod', prod)]
 
     expected_compartment_cnt = 1
 
     expected_n_species = numpy.array([state['n_species']['A'],
-                                      state['n_species']['B']])
+                                      state['n_species']['B'],
+                                      state['n_species']['C']])
 
     # (rxn_cnt, specie_cnt) -
-    # constant arr of stoich changes for
-    # each species during given reaction
-    expected_rxn = numpy.array([[0,    1],
-                                [0, -0.1]])
+    # reaction differential propensities
+    # will automatically multiply by reaction rates,
+    #  below
+    expected_rxn = numpy.array([[1, 0, 1],
+                                [0, 0, 0]], dtype=numpy.float32)
 
-    expected_rxn_stoic = numpy.array([[-0.1, 0],
-                                      [0.1,  0]])
+    expected_rxn_stoic = numpy.array([[-0.1, 0, 0],
+                                      [0.1,  0, 0]])
 
-    for row in xrange(expected_rxn.shape[0]):
-        expected_rxn[row] *= rxn_rates[row]
+    for i in xrange(2):
+        expected_rxn[i, :] *= rxn_rates[i]
 
     # (rxn_cnt, compartment_cnt)
     # Initial reaction propensities,
     # per compartment
-    expected_rxn_prop = numpy.array([[0],
+    expected_rxn_prop = numpy.array([[2],
                                      [1]])
+
+    expected_rxn_cum = numpy.array([2, 3])
+
+    expected_alpha_rxn = 3

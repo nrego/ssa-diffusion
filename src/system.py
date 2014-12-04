@@ -51,11 +51,18 @@ class ReactionSchema:
                               in sorted(rxn_data['reactants'])]
         except KeyError:
             self.reactants = []
+
+        if len(self.reactants) > 2:
+            raise Exception('Sorry, only zeroth, \
+                            first, and second \
+                            order reactions are currently supported')
         try:
             self.products = [product for product
                              in sorted(rxn_data['products'])]
         except KeyError:
             self.products = []
+
+        self.order = len(self.reactants)
 
     def __repr__(self):
         return 'Reaction: {}, reactants: {!r}, products: {!r}' \
@@ -103,19 +110,16 @@ class ReactionSchema:
 
         return prop_arr
 
-    # How would this reaction's propensity change
-    #   if the other reaction (other_rxn_schema)
-    #   occurred?
-    #   Note - need to multiple by this reaction's
-    #   rate when building propensity
+    # given a change in species numbers,
+    #   determine if this reaction's propensity
+    #   needs to be updated
     def prop_change(self, stoic_change, species):
 
-        delta_prop = 0
         for i, specie in enumerate(species):
             if specie in self.reactants:
-                delta_prop += stoic_change[i]
+                return True
 
-        return delta_prop
+        return False
 
 
 class System:

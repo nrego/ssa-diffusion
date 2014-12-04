@@ -79,11 +79,6 @@ class PropensityRxnTests(PropensityCoreTests):
     def test_rxn_arrays_setup_correctly(self):
 
         prop = self.prop
-        expected_rxn_shape = (prop.rxn_cnt, prop.specie_cnt)
-
-        assert prop.rxn.shape == expected_rxn_shape, \
-            'Wrong diff shape: expected {!r} but got {!r}' \
-            .format(expected_rxn_shape, prop.rxn.shape)
 
         expected_rxn_prop_shape = (prop.rxn_cnt, prop.compartment_cnt)
 
@@ -91,24 +86,29 @@ class PropensityRxnTests(PropensityCoreTests):
             'Wrong diff_prop shape: expected {!r} but got {!r}' \
             .format(expected_rxn_prop_shape, prop.rxn_prop.shape)
 
-        #assert numpy.array_equal(prop.rxn, self.expected_rxn)
-        assert numpy.array_equal(prop.rxn_prop, self.expected_rxn_prop)
+        assert numpy.array_equal(prop.rxn, self.expected_rxn), \
+            'Expected {!r}, got {!r}'.format(self.expected_rxn, prop.rxn)
 
-    @nose.SkipTest
-    def test_diff_cumulative_array_initialized_correctly(self):
+        assert numpy.array_equal(prop.rxn_prop, self.expected_rxn_prop), \
+            'Expected {!r}, got {!r}'.format(self.expected_rxn_prop, prop.rxn_prop)
+
+    def test_rxn_cumulative_array_initialized_correctly(self):
         prop = self.prop
 
-        assert prop.diff_cum.ndim == 1
+        assert prop.rxn_cum.ndim == 1
 
-        assert prop.diff_cum.size == (2*len(prop.species)*prop.compartment_cnt)
-        assert numpy.array_equal(prop.diff_cum, self.expected_diff_cum)
-        assert prop.diff_length == prop.diff_cum.size
+        assert prop.rxn_cum.size == (prop.rxn_cnt*prop.compartment_cnt)
 
-    @nose.SkipTest
-    def test_alpha_diff_initialized_correctly(self):
+        assert numpy.array_equal(prop.rxn_cum, self.expected_rxn_cum), \
+            'Expected {!r}, got {!r}'.format(self.expected_rxn_cum, prop.rxn_cum)
+        assert prop.rxn_length == prop.rxn_cum.size, \
+            'Expected {!r}, got {!r}'.format(prop.rxn_cum.size, prop.rxn_length)
+
+    def test_alpha_rxn_initialized_correctly(self):
         prop = self.prop
 
-        assert prop.alpha_diff == self.expected_alpha_diff
+        assert prop.alpha_rxn == self.expected_alpha_rxn, \
+            'Expected {!r}, got {!r}'.format(self.expected_alpha_rxn, prop.alpha_rxn)
 
 
 # Generate an expected, updated n_species and diff_prop

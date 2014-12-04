@@ -15,6 +15,32 @@ import logging
 log = logging.getLogger('propensity')
 
 
+# This is kind of nasty.
+#   In an attempt to reduce overhead
+#   involved in recalculating reaction
+#   propensities each iteration,
+#   this lookup table provides
+#   appropriate marginal
+#   propensity change for
+#   each reaction
+class ReactionDiffLookup:
+
+    def __init__(self, rxn_schemas, n_species):
+
+        self.rxn_schemas = rxn_schemas
+        self.rxn_cnt = len(rxn_schemas)
+
+        # Let's hope to god numpy arrays
+        #    are passed by reference...
+        self.n_species = n_species
+        self.species_cnt = n_species.shape
+
+        self.rxn_stoic = numpy.array((rxn_cnt, species_cnt))
+
+        for i, rxn_schema in enumerate(rxn_schemas):
+            self.rxn_stoic[i] = rxn_schema.get_stoichiometry(species)
+
+
 class Propensity:
     '''Class to encapsulate system state, using numpy arrays
        Expects that all species keys from state are sorted
@@ -25,6 +51,8 @@ class Propensity:
         self.state = state
         self.species = None
         self.reactions = None
+        self.rxn_schemas = None
+        self.rxn_rates = None
         # N species array
         # shape: (specie_cnt,)
         self.n_species = None
@@ -47,26 +75,47 @@ class Propensity:
         # Cumulative sum for diff propensities
         # lol cum
         self.diff_cum = None
+
         # 2 * specie_cnt * compartment_cnt
         self.diff_length = None
 
-        # Constant array of differential reaction
-        #   propensities - i.e. how does rxn
-        #   i occurrence affect the propensity
-        #   of all other rxns (presumably only
-        #   in the relevant column)
-        #   of relevant reaction and reaction rate
-        # shape: (rxn_cnt, rxn_cnt)
-        self.rxn = None
+        # Given 'rxn_idx' occurs,
+        #   Which reactions need
+        #   their propensities updated?
+        #   List of tuples.
+        # shape: (rxn_cnt, 1)
+        self.rxn_rxn_update = None
+
+        # Given 'specie_idx' changes,
+        #   Which reactions need
+        #   their propensities updated?
+        #   List of tuples.
+        # shape: (specie_cnt, 1)
+        self.specie_rxn_update = None
+
         # Constant array of differential reaction
         #   stoichiometries - similar to self.rxn,
         #   but for updating n_species after reaction
         #   occurs
         # shape: (rxn_cnt, specie_cnt)
         self.rxn_stoic = None
+
+        # Stoichiometric differential reaction
+        #   propensities for each species
+        #   This relates to the propensity
+        #   of given reaction, unlike above
+        # shape: (rxn_cnt, specie_cnt)
+        self.rxn = None
+
+        # Mask for above - blocks
+        #   irrelevant species
+        # shape: (rxn_cnt, specie_cnt)
+        self.rxn_mask = None
+
         # Reaction propensities, per compartment
         # shape: (rxn_count, compartment_cnt)
         self.rxn_prop = None
+
         self.rxn_cum = None
 
         self._alpha_diff = None
@@ -78,6 +127,8 @@ class Propensity:
         '''Initialize reaction propensities'''
 
         log.info('Loading propensity from state')
+
+        self.rxn_schemas = rxn_schemas
 
         self.species = sorted(self.state['n_species'].keys())
         self.reactions = sorted(self.state['rates']['reaction'].keys())
@@ -120,31 +171,47 @@ class Propensity:
         self.diff_length = self.diff_cum.size
 
         # Reaction arrays
-        self.rxn = numpy.zeros((self.rxn_cnt, self.rxn_cnt),
-                               dtype=numpy.float32)
+        self.rxn_rxn_update = {}
+        self.rxn_rates = numpy.zeros((self.rxn_cnt,),
+                                     dtype=numpy.float32)
         self.rxn_stoic = numpy.zeros((self.rxn_cnt, self.specie_cnt),
                                      dtype=numpy.float32)
-        self.rxn_prop = numpy.zeros((self.rxn_cnt, self.compartment_cnt),
-                                    dtype=numpy.float32)
+        self.rxn_prop = numpy.ones((self.rxn_cnt, self.compartment_cnt),
+                                   dtype=numpy.float32)
+        self.rxn = numpy.zeros((self.rxn_cnt, self.specie_cnt),
+                               dtype=numpy.float32)
 
         for i, reaction in enumerate(self.reactions):
             rxn_schema = rxn_schemas[i]
             rate = self.state['rates']['reaction'][reaction]
+            self.rxn_rates[i] = rate
             rxn_stoic = rxn_schema.get_stoichiometry(self.species)
-            rxn_prop = rxn_schema.get_propensity(self.species) * rate
+            rxn_prop = rxn_schema.get_propensity(self.species)
             self.rxn_stoic[i] = rxn_stoic
-            self.rxn[i] = rxn_stoic * rate
+            self.rxn[i] = rxn_prop * rate
 
-            for j, r in enumerate(self.reactions):
-                other_rxn_schema = rxn_schemas[j]
-                delta_rxn = other_rxn_schema.prop_change(rxn_stoic, self.species)
+            updates = []
+            for j, other_reaction in enumerate(rxn_schemas):
+                if other_reaction.prop_change(rxn_stoic, self.species):
+                    updates.append(j)
 
-                self.rxn[i, j] = delta_rxn * rate
+            self.rxn_rxn_update[i] = updates
 
-            for k, specie in enumerate(self.species):
-                self.rxn_prop[i] = self.n_species[k] * rxn_prop[k]
+            if rxn_schema.order == 0:
+                self.rxn_prop[i] = rate
+            else:
+                for k, specie in enumerate(self.species):
+                    if rxn_prop[k] != 0:
+                        self.rxn_prop[i] *= self.n_species[k] * rxn_prop[k]
+                self.rxn_prop[i] *= rate
 
+        self.rxn_mask = self.rxn > 0
+
+        if self.rxn_cnt == 0:
+            self.rxn_prop = numpy.zeros((1,1))
+            self.rxn_cum = numpy.array([0])  # Hack if no reactions
         self.rxn_cum = self.rxn_prop.cumsum()
+
         self.rxn_length = self.rxn_cum.size
 
         log.info('Propensity succesfully initialized from state')
@@ -196,6 +263,10 @@ class Propensity:
         self.n_species[specie_idx, col_from] -= 1
         self.n_species[specie_idx, col_to] += 1
 
+        # Propensities for all reactions in col_from, col_to
+        #   with specie_idx as reactant have to have propensities
+        #   updated
+
         # Marginal diffusion propensities
         diff_from = self.diff[specie_idx][col_from]
         diff_to = self.diff[specie_idx][col_to]
@@ -237,8 +308,11 @@ class Propensity:
 
         # Adjust rxn propensities in this
         #   compartment
-        rxn_delta = self.rxn[rxn_idx]  # rxn_cnt size array
-        self.rxn_prop[:, compartment_idx] += rxn_delta
+        for rxn_idx_update in self.rxn_rxn_update[rxn_idx]:
+            rxn = self.rxn[rxn_idx_update]
+            mask = self.rxn_mask[rxn_idx_update]
+            new_prop = (self.n_species[:, compartment_idx] * rxn)[mask]
+            self.rxn_prop[rxn_idx_update, compartment_idx] = new_prop
 
         self.diff_cum = self.diff_prop.cumsum()
         self.rxn_cum = self.rxn_prop.cumsum()
@@ -249,10 +323,7 @@ class Propensity:
 
     @property
     def alpha_rxn(self):
-        if self._alpha_rxn is None:
-            self._alpha_rxn = numpy.sum(self.rxn_prop)
-
-        return self._alpha_rxn
+        return self.rxn_cum[-1] or 0
 
     @property
     def alpha(self):
