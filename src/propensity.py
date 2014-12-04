@@ -15,36 +15,13 @@ import logging
 log = logging.getLogger('propensity')
 
 
-# This is kind of nasty.
-#   In an attempt to reduce overhead
-#   involved in recalculating reaction
-#   propensities each iteration,
-#   this lookup table provides
-#   appropriate marginal
-#   propensity change for
-#   each reaction
-class ReactionDiffLookup:
-
-    def __init__(self, rxn_schemas, n_species):
-
-        self.rxn_schemas = rxn_schemas
-        self.rxn_cnt = len(rxn_schemas)
-
-        # Let's hope to god numpy arrays
-        #    are passed by reference...
-        self.n_species = n_species
-        self.species_cnt = n_species.shape
-
-        self.rxn_stoic = numpy.array((rxn_cnt, species_cnt))
-
-        for i, rxn_schema in enumerate(rxn_schemas):
-            self.rxn_stoic[i] = rxn_schema.get_stoichiometry(species)
-
-
 class Propensity:
     '''Class to encapsulate system state, using numpy arrays
        Expects that all species keys from state are sorted
-       (according to hash order)'''
+       (according to hash order)
+
+       My attribute naming scheme, as much as it exists,
+             is kind of shitty - sorry about that'''
 
     def __init__(self, state, rxn_schemas=None):
 
