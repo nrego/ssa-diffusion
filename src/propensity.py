@@ -318,7 +318,9 @@ class Propensity:
         # Adjust diffusion propensities for
         #   species in this compartment
         delta_diff = self.diff[:, compartment_idx] * stoic
-        self.diff_prop[:, compartment_idx] += delta_diff
+        self.diff_prop[::2, compartment_idx] += delta_diff
+        self.diff_prop[1::2, compartment_idx] += delta_diff
+        self.diff_prop[:, compartment_idx] *= self.diff_mask[:, compartment_idx]
 
         # Adjust rxn propensities in this
         #   compartment
@@ -329,7 +331,7 @@ class Propensity:
             new_prop = (self.n_species[:, compartment_idx] * rxn)[mask]
             self.rxn_prop[rxn_idx_update, compartment_idx] = (new_prop * rate)
 
-        self.diff_prop *= self.diff_mask
+        #self.diff_prop *= self.diff_mask
         self.diff_cum = self.diff_prop.cumsum()
         self.rxn_cum = self.rxn_prop.cumsum()
 
