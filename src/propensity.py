@@ -72,6 +72,12 @@ class Propensity:
         # shape: (specie_cnt, compartment_cnt)
         self.diff_prop = None
 
+        # A mask to keep us honest
+        #   Enforces even rows of diff_prop
+        #   (move right) must be zero at last col,
+        #   odd rows (move left) must be zero at first
+        self.diff_mask = None
+
         # Cumulative sum for diff propensities
         # lol cum
         self.diff_cum = None
@@ -160,11 +166,19 @@ class Propensity:
 
         self.diff_prop = numpy.zeros((diff_prop.shape[0]*2, diff_prop.shape[1]),
                                      dtype=numpy.float32)
+        self.diff_mask = self.diff_prop == self.diff_prop
+
+        assert self.diff_mask.dtype == 'bool'
+        assert self.diff_mask.shape == self.diff_prop.shape
+
+        self.diff_mask[::2, -1] = False
+        self.diff_mask[1::2, 0] = False
 
         for i, specie in enumerate(self.species):
             self.diff_prop[2*i, :-1] = diff_prop[i, :-1]
             self.diff_prop[2*i+1, 1:] = diff_prop[i, 1:]
 
+        self.diff_prop *= self.diff_mask
         log.debug('Diff propensity array: {!r}'.format(self.diff_prop))
 
         self.diff_cum = self.diff_prop.cumsum()
@@ -188,7 +202,7 @@ class Propensity:
             rxn_stoic = rxn_schema.get_stoichiometry(self.species)
             rxn_prop = rxn_schema.get_propensity(self.species)
             self.rxn_stoic[i] = rxn_stoic
-            self.rxn[i] = rxn_prop * rate
+            self.rxn[i] = rxn_prop  # * rate
 
             updates = []
             for j, other_reaction in enumerate(rxn_schemas):
@@ -208,7 +222,7 @@ class Propensity:
         self.rxn_mask = self.rxn > 0
 
         if self.rxn_cnt == 0:
-            self.rxn_prop = numpy.zeros((1,1))
+            self.rxn_prop = numpy.zeros((1, 1))
             self.rxn_cum = numpy.array([0])  # Hack if no reactions
         self.rxn_cum = self.rxn_prop.cumsum()
 
@@ -288,7 +302,7 @@ class Propensity:
                 self.diff_prop[row_neighbor, col_from] -= diff_from
 
         #log.debug('diff prop after: {!r}'.format(self.diff_prop))
-
+        self.diff_prop *= self.diff_mask
         self.diff_cum = self.diff_prop.cumsum()
         self.rxn_cum = self.rxn_prop.cumsum()  # Ugh
 
@@ -309,11 +323,13 @@ class Propensity:
         # Adjust rxn propensities in this
         #   compartment
         for rxn_idx_update in self.rxn_rxn_update[rxn_idx]:
+            rate = self.rxn_rates[rxn_idx_update]
             rxn = self.rxn[rxn_idx_update]
             mask = self.rxn_mask[rxn_idx_update]
             new_prop = (self.n_species[:, compartment_idx] * rxn)[mask]
-            self.rxn_prop[rxn_idx_update, compartment_idx] = new_prop
+            self.rxn_prop[rxn_idx_update, compartment_idx] = (new_prop * rate)
 
+        self.diff_prop *= self.diff_mask
         self.diff_cum = self.diff_prop.cumsum()
         self.rxn_cum = self.rxn_prop.cumsum()
 

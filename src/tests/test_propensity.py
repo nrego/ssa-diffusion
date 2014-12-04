@@ -126,11 +126,8 @@ class TestPropensityReactionOnly(PropensityRxnTests):
     expected_rxn = numpy.array([[1, 0, 1],
                                 [0, 0, 0]], dtype=numpy.float32)
 
-    expected_rxn_stoic = numpy.array([[-0.1, 0, 0],
-                                      [0.1,  0, 0]])
-
-    for i in xrange(2):
-        expected_rxn[i, :] *= rxn_rates[i]
+    expected_rxn_stoic = numpy.array([[0, 0, -1],
+                                      [0, 0,  1]])
 
     # (rxn_cnt, compartment_cnt)
     # Initial reaction propensities,
