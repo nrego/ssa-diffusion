@@ -10,7 +10,7 @@ PKGS=(numpy matplotlib yaml cython)
 
 for pkg in ${PKGS[*]}; do
 
-	$SSA_PYTHON -c "import $pkg" || echo "ERROR: Python package $pkg not found (Try downloading Anaconda or Canopy distribution"
+	$SSA_PYTHON -c "import $pkg" || echo "ERROR: Python package $pkg not found (Try downloading Anaconda or Canopy distribution)"
 
 done
 
