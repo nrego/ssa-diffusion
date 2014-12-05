@@ -121,12 +121,6 @@ class Propensity:
 
         log.info('Loading propensity from state')
 
-        if prop_mask is not None:
-            if 'diffusion' in prop_mask.keys():
-                self.prop_diff_mask = prop_mask['diffusion']
-            if 'reaction' in prop_mask.keys():
-                self.prop_rxn_mask = prop_mask['reaction']
-
         self.rxn_schemas = rxn_schemas
 
         self.species = sorted(self.state['n_species'].keys())
@@ -143,6 +137,22 @@ class Propensity:
         self.rxn_cnt = len(self.reactions)
         self.specie_cnt = len(self.species)
 
+        # set up user masks, if specified
+        self.prop_rxn_mask = numpy.ones((self.rxn_cnt, self.compartment_cnt),
+                                        dtype=numpy.bool)
+        self.prop_diff_mask = numpy.ones((self.specie_cnt, self.compartment_cnt),
+                                         dtype=numpy.bool)
+
+        if prop_mask is not None:
+            if 'diffusion' in prop_mask.keys():
+                for i, specie in enumerate(self.species):
+                    if specie in prop_mask['diffusion']:
+                        self.prop_diff_mask[i] = prop_mask['diffusion'][specie]
+            if 'reactions' in prop_mask.keys():
+                for i, reaction in enumerate(self.reactions):
+                    if reaction in prop_mask['reactions']:
+                        self.prop_rxn_mask[i] = prop_mask['reactions'][reaction]
+
         assert (self.species == self.state['n_species'].keys() ==
                 self.state['rates']['diffusion'].keys()), \
             'Species are not ordered correctly'
@@ -153,6 +163,8 @@ class Propensity:
 
         self.diff = numpy.array(self.state['rates']['diffusion'].values(),
                                 dtype=numpy.float32)
+        # Block some species diffusion in certain compartments, if desired
+        self.diff *= self.prop_diff_mask
         log.debug('Diff array:{!r}'.format(self.diff))
 
         diff_prop = self.diff * self.n_species
@@ -190,7 +202,8 @@ class Propensity:
 
         for i, reaction in enumerate(self.reactions):
             rxn_schema = rxn_schemas[i]
-            rate = self.state['rates']['reaction'][reaction]
+            # Hackish. Should have already been coerced to float!
+            rate = float(self.state['rates']['reaction'][reaction])
             self.rxn_rates[i] = rate
             rxn_stoic = rxn_schema.get_stoichiometry(self.species)
             rxn_prop = rxn_schema.get_propensity(self.species)
@@ -211,6 +224,10 @@ class Propensity:
                     if rxn_prop[k] != 0:
                         self.rxn_prop[i] *= self.n_species[k] * rxn_prop[k]
                 self.rxn_prop[i] *= rate
+
+        # Block reactions from occuring in certain compartments,
+        #   if desired
+        self.rxn_prop *= self.prop_rxn_mask
 
         self.rxn_mask = self.rxn > 0
 
@@ -322,7 +339,10 @@ class Propensity:
             rxn = self.rxn[rxn_idx_update]
             mask = self.rxn_mask[rxn_idx_update]
             new_prop = (self.n_species[:, compartment_idx] * rxn)[mask]
-            self.rxn_prop[rxn_idx_update, compartment_idx] = (new_prop.prod() * rate)
+            self.rxn_prop[rxn_idx_update, compartment_idx] = \
+                (new_prop.prod() * rate)
+            self.rxn_prop[rxn_idx_update, compartment_idx] *= \
+                self.prop_rxn_mask[rxn_idx_update, compartment_idx]
 
         #self.diff_prop *= self.diff_mask
         self.diff_cum = self.diff_prop.cumsum()

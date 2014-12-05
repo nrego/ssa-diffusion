@@ -147,6 +147,9 @@ class System:
 
         self.compartment_bounds = numpy.array(list(compartments))
         self.compartment_lengths = numpy.diff(self.compartment_bounds)
+        assert self.compartment_bounds.ndim == 1
+        self.compartment_cnt = self.compartment_lengths.size
+
         self.species = config.get(['system', 'spec', 'species'], [])
         self.species.sort()
         reactions = config.get(['system', 'spec', 'reactions'], {})
@@ -154,7 +157,7 @@ class System:
         self.reactions = []
         self.reaction_names = []
 
-        for rxn_name in sorted(reactions.keys()):
+        for rxn_name in sorted(reactions.iterkeys()):
             rxn_data = config.require(['system', 'spec', 'reactions', rxn_name])
 
             rxn_schema = ReactionSchema(rxn_name, rxn_data)
@@ -164,15 +167,51 @@ class System:
 
         assert self.reaction_names == sorted(self.reaction_names)
 
+        # Process and eval mask config items, if present
+        mask_conf = config.get(['system', 'mask'])
+        log.debug('Mask config: {!r}'.format(mask_conf))
+        self.mask = {'diffusion': {}, 'reactions': {}}
+        if mask_conf is not None:
+            try:
+                mask_diff = mask_conf['diffusion']
+                self.mask['diffusion'] = {}
+                for key, val in mask_diff.iteritems():
+                    mask = numpy.ones((self.compartment_cnt), dtype=numpy.bool)
+                    try:
+                        mask_idx = eval(val, namespace)
+                        mask[mask_idx] = False
+                        self.mask['diffusion'][key] = mask
+                    except Exception as e:
+                        raise ValueError('invalid mask specification: {!r}'.format(e))
+            except KeyError:
+                pass
+
+            try:
+                mask_rxn = mask_conf['reactions']
+                self.mask['reactions'] = {}
+                for key, val in mask_rxn.iteritems():
+                    mask = numpy.ones((self.compartment_cnt), dtype=numpy.bool)
+                    try:
+                        mask_idx = eval(val, namespace)
+                        mask[mask_idx] = False
+                        self.mask['reactions'][key] = mask
+                    except Exception as e:
+                        raise ValueError('invalid mask specification: {!r}'.format(e))
+            except KeyError:
+                pass
+
     def __init__(self, rc=None):
         self.rc = rc or ssa.rc
 
         # system spec stuff
         self.compartment_bounds = None
         self.compartment_lengths = None
+        self.compartment_cnt = None
         self.species = None
         self.reactions = None
         self.reaction_names = None
+        # Dictionary to optionally restrict reactions to certain compartments
+        self.mask = None
         self.process_config()
 
         # system state
@@ -222,7 +261,7 @@ class System:
                       }
 
         # System state from config file
-        for specie, n_arr in self.n_species.items():
+        for specie, n_arr in self.state['n_species'].items():
             conf_arr = config.get(['params', 'n_species', specie])
             if conf_arr:
                 for i, val in conf_arr.iteritems():
@@ -257,9 +296,13 @@ class System:
         self.rc.pstatus('  Species diffusion:')
         for specie, diffusion in self.diffusion_rates.items():
             self.rc.pstatus('    {!r}: d = {!r}'.format(specie, diffusion))
+            if specie in self.mask['diffusion']:
+                self.rc.pstatus('      mask: {!r}'.format(self.mask['diffusion'][specie]))
         self.rc.pstatus('  Reactions:')
         for rxn, rate in self.rxn_rates.items():
             self.rc.pstatus('    {!r}: {!r}'.format(rxn, rate))
+            if rxn in self.mask['reactions']:
+                self.rc.pstatus('      mask: {!r}'.format(self.mask['reactions'][rxn]))
         self.rc.pstatus()
         self.rc.pflush()
 
@@ -271,9 +314,8 @@ class System:
         #self.printState()
 
     def update_state_from_propensity(self):
-        if self.propensity:
-            for i, specie in enumerate(self.propensity.species):
-                self.state['n_species'][specie] = self.propensity.n_species[i]
+        for i, specie in enumerate(self.propensity.species):
+            self.state['n_species'][specie] = self.propensity.n_species[i]
 
     # Run iteration - Note that rand is r2*a, where r2 element of [0, 1)
     def run_iter(self, rand, tau):
@@ -311,11 +353,11 @@ class System:
         if self._propensity is None:
             if self.state is not None:
                 order_state(self.state)  # Ensure ordered keys
-                self._propensity = Propensity(self.state, self.reactions)
+                self._propensity = Propensity(self.state, self.reactions,
+                                              self.mask)
 
         return self._propensity
 
     @property
     def alpha(self):
-        if self.propensity is not None:
-            return self.propensity.alpha
+        return self.propensity.alpha
