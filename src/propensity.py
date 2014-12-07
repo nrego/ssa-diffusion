@@ -135,7 +135,7 @@ class Propensity:
         log.debug('Reactions: {!r}'.format(self.reactions))
 
         self.n_species = numpy.array(self.state['n_species'].values(),
-                                     dtype=numpy.uint32)
+                                     dtype=numpy.uint64)
         log.debug('N Species: {!r}'.format(self.n_species))
 
         self.compartment_cnt = self.n_species.shape[1]
@@ -214,6 +214,7 @@ class Propensity:
 
         # Reaction arrays
         self.rxn_rxn_update = {}
+        self.specie_rxn_update = {}
         self.rxn_rates = numpy.zeros((self.rxn_cnt,),
                                      dtype=numpy.float64)
         self.rxn_stoic = numpy.zeros((self.rxn_cnt, self.specie_cnt),
@@ -222,6 +223,16 @@ class Propensity:
                                    dtype=numpy.float64)
         self.rxn = numpy.zeros((self.rxn_cnt, self.specie_cnt),
                                dtype=numpy.float64)
+
+        if rxn_schemas is not None:
+            for i, specie in enumerate(self.species):
+                specie_stoic = numpy.zeros((self.specie_cnt), dtype=numpy.uint32)
+                specie_stoic[i] = 1
+                updates = []
+                for j, rxn_schema in enumerate(rxn_schemas):
+                    if rxn_schema.prop_change(specie_stoic, self.species):
+                        updates.append(j)
+                self.specie_rxn_update[i] = updates
 
         for i, reaction in enumerate(self.reactions):
             rxn_schema = rxn_schemas[i]
@@ -267,7 +278,7 @@ class Propensity:
     def choose_rxn(self, rand):
         #TODO: Watch out for string 'format' calls in logger - really
         # fucking slow for oft-repeated loops
-        #log.debug('r*a = {:.4f}'.format(rand))
+        log.debug('r*a = {:.4f}'.format(rand))
 
         if rand <= self.alpha_diff:
             #idx = (rand < self.diff_prop.cumsum()).argmax()
@@ -307,6 +318,7 @@ class Propensity:
 
             return
 
+        assert self.n_species[specie_idx, col_from] > 0
         self.n_species[specie_idx, col_from] -= 1
         self.n_species[specie_idx, col_to] += 1
 
@@ -379,11 +391,11 @@ class Propensity:
 
     @property
     def alpha_diff(self):
-        return self.diff_cum[-1] or 0
+        return self.diff_cum[-1]
 
     @property
     def alpha_rxn(self):
-        return self.rxn_cum[-1] or 0
+        return self.rxn_cum[-1]
 
     @property
     def alpha(self):

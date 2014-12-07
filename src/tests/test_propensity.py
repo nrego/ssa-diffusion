@@ -201,3 +201,11 @@ class TestPropensityReactionOnly(PropensityRxnTests):
         assert prop.alpha == prop.alpha_rxn == 4
 
         self.check_state_params_unchanged()
+
+
+class TestDiffusionAndReaction(PropensityDiffTests, PropensityRxnTests):
+
+    state = {
+        'n_species': {'A': [10, 0],
+                      'B': [0, 10]}
+    }

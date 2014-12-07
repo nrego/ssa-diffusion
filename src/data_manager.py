@@ -18,7 +18,7 @@ except ImportError:
 import ssa
 import numpy
 
-# Default - data buffer flush interval iterations
+# Default - data buffer flush interval
 BUFFER_FLUSH = 50
 
 class DataManager:
@@ -38,7 +38,7 @@ class DataManager:
         self.outfilename = None
         self.outfile = None
         self.data_buffer = None
-        self.dtype = None
+        self.fmt = None
         self.dlength = None
         self.buffer_flush = None
         self.data_ptr = None
@@ -55,8 +55,9 @@ class DataManager:
 
         return self
 
-    def __exit__(self):
+    def __exit__(self, type, value, traceback):
         if self.outfile:
+            self.dump_data_buffer()
             self.outfile.close()
 
     # Open data file output stream, initialize data buffer
@@ -65,24 +66,28 @@ class DataManager:
         mode = 'a' if append else 'w'
         self.outfile = open(outfilename, mode)
 
-        # Ew - have to clean up system/propensity/species reference chains ...
-        species = self.system.propensity.species
-        n_species = self.system.propensity.n_species
-        width = n_species.shape[1]
-        self.dtype = numpy.dtype([('time', numpy.float32)] +
-                                 [(specie, numpy.uint32, (width,)) for specie in species])
+        self.fmt = '%.4f'
+        fmtrs = [' %d' for i in xrange(self.system.compartment_cnt)]
+        for fmtstr in fmtrs:
+            self.fmt += fmtstr
+
+        log.debug('Format string: {}'.format(self.fmt))
 
         self.data_ptr = 0
-        self.data_buffer = numpy.empty((1,), dtype=self.dtype)
+        self.data_buffer = numpy.empty((1, self.system.species_cnt,
+                                        self.system.compartment_cnt+1),
+                                       dtype=numpy.float64)
         self.add_data()
         self.dump_data_buffer()
 
     def add_data(self):
+
+        if self.data_ptr >= self.buffer_flush:
+            self.dump_data_buffer()
         try:
             curr_buffer = self.data_buffer[self.data_ptr]
-            curr_buffer['time'] = self.system.time
-            for specie, n_species in self.system.n_species.items():
-                curr_buffer[specie] = n_species
+            curr_buffer[:, 0] = self.system.time
+            curr_buffer[:,1:] = self.system.propensity.n_species
 
         except IndexError:
             raise
@@ -91,8 +96,13 @@ class DataManager:
 
     # Output data buffer to outstream
     def dump_data_buffer(self):
-        numpy.savetxt(self.outfile, self.data_buffer)
-        self.data_buffer = numpy.empty((self.buffer_flush,), dtype=self.dtype)
+
+        for timepoint in xrange(self.data_ptr):
+            numpy.savetxt(self.outfile, self.data_buffer[timepoint], self.fmt)
+
+        self.data_buffer = numpy.empty((self.buffer_flush, self.system.species_cnt,
+                                        self.system.compartment_cnt+1),
+                                       dtype=numpy.float64)
 
         self.data_ptr = 0
 

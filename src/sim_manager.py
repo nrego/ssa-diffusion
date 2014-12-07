@@ -24,6 +24,7 @@ class SimManager:
 
         self.max_run_walltime = config.get(['rc', 'max_run_wallclock'], None)
         self.max_total_time = config.get(['rc', 'max_time'], 10)
+        self.data_output_freq = config.get(['rc', 'output_frequency'], 60)
 
     def __init__(self, rc=None):
         self.rc = rc or ssa.rc
@@ -34,6 +35,7 @@ class SimManager:
         # config items
         self.max_run_walltime = None
         self.max_total_time = None
+        self.data_output_freq = None
         self.process_config()
 
         self._state = None
@@ -66,34 +68,44 @@ class SimManager:
         self.system.print_state()
 
         try:
-            while (self.time < self.max_total_time):
-                self.n_iter += 1
-                #log.debug('Starting iteration {!r}, total time: {!r}'.format(self.n_iter, self.time))
+            with self.data_manager:
+                last_output = 0
+                while (self.time < self.max_total_time):
+                    self.n_iter += 1
+                    #log.debug('Starting iteration {!r}, total time: {!r}'.format(self.n_iter, self.time))
 
-                if self.n_iter % 5000 == 0:
-                    pstatus("\rIter: {!r}  Time: {:.4f} s".format(self.n_iter, self.time))
-                    pflush()
+                    if self.n_iter % 5000 == 0:
+                        pstatus("\rIter: {!r}  Time: {:.4f} s".format(self.n_iter, self.time))
+                        pflush()
 
-                a = self.system.alpha
+                    a = self.system.alpha
+                    log.debug('a: {}, a_diff: {}, a_rxn: {}'.
+                                format(a, self.system.propensity.alpha_diff, self.system.propensity.alpha_rxn))
 
-                r1, r2 = rand(), rand()*a
-                #log.debug('a: {}'.format(a))
-                if a <= 0:
-                    pstatus('a = {!r}'.format(a))
-                    pstatus('Exiting...')
-                    break
+                    r1, r2 = rand(), rand()*a
+                    #log.debug('a: {}'.format(a))
+                    if a <= 0:
+                        pstatus('a = {!r}'.format(a))
+                        pstatus('Exiting...')
+                        break
 
-                tau = numpy.log(1/r1)/a
+                    tau = numpy.log(1/r1)/a
 
-                if self.time + tau >= self.max_total_time:
-                    pstatus('Iter: {!r}  Time: {:.4f} s'.format(self.n_iter, self.time))
-                    pstatus('Next tau ({!r}) would put simulation over max total time ({!r} s)'.
-                            format(tau, self.max_total_time))
-                    pstatus('Exiting...')
-                    pflush()
-                    break
+                    if last_output + tau >= self.data_output_freq:
+                        log.info("Adding data")
+                        last_output = 0
+                        self.data_manager.add_data()
 
-                self.system.run_iter(r2, tau)
+                    if self.time + tau >= self.max_total_time:
+                        pstatus('Iter: {!r}  Time: {:.8f} s'.format(self.n_iter, self.time))
+                        pstatus('Next tau ({!r}) would put simulation over max total time ({!r} s)'.
+                                format(tau, self.max_total_time))
+                        pstatus('Exiting...')
+                        pflush()
+                        break
+
+                    self.system.run_iter(r2, tau)
+                    last_output += tau
 
         finally:
             self.system.update_state_from_propensity()

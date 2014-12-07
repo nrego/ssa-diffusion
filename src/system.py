@@ -84,7 +84,7 @@ class ReactionSchema:
     # indexed according to 'species'
     def get_stoichiometry(self, species):
 
-        stoic_arr = numpy.zeros((len(species)))
+        stoic_arr = numpy.zeros((len(species)), dtype=numpy.int64)
 
         for i, specie in enumerate(species):
             if specie in self.reactants:
@@ -102,7 +102,7 @@ class ReactionSchema:
     #   times reaction rate
     def get_propensity(self, species):
 
-        prop_arr = numpy.zeros((len(species)))
+        prop_arr = numpy.zeros((len(species)), dtype=numpy.float64)
 
         for i, specie in enumerate(species):
             if specie in self.reactants:
@@ -116,8 +116,9 @@ class ReactionSchema:
     def prop_change(self, stoic_change, species):
 
         for i, specie in enumerate(species):
-            if specie in self.reactants:
-                return True
+            if stoic_change[i] != 0:
+                if specie in self.reactants:
+                    return True
 
         return False
 
@@ -282,7 +283,7 @@ class System:
                     try:
                         n_arr[i] = val
                     except IndexError:
-                        raise ValueError("problem with n_species config")
+                        raise ValueError("problem with n_species config: {}".format(i))
 
             self.state['n_species'][specie] = numpy.array(n_arr,
                                                           dtype=numpy.uint32)
@@ -356,6 +357,10 @@ class System:
         self.update_state_from_propensity()
 
         return self.state['n_species']
+
+    @property
+    def species_cnt(self):
+        return self.propensity.specie_cnt
 
     @property
     def time(self):
