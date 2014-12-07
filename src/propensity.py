@@ -224,15 +224,15 @@ class Propensity:
         self.rxn = numpy.zeros((self.rxn_cnt, self.specie_cnt),
                                dtype=numpy.float64)
 
-        if rxn_schemas is not None:
-            for i, specie in enumerate(self.species):
-                specie_stoic = numpy.zeros((self.specie_cnt), dtype=numpy.uint32)
-                specie_stoic[i] = 1
-                updates = []
+        for i, specie in enumerate(self.species):
+            specie_stoic = numpy.zeros((self.specie_cnt), dtype=numpy.uint32)
+            specie_stoic[i] = 1
+            updates = []
+            if rxn_schemas is not None:
                 for j, rxn_schema in enumerate(rxn_schemas):
                     if rxn_schema.prop_change(specie_stoic, self.species):
                         updates.append(j)
-                self.specie_rxn_update[i] = updates
+            self.specie_rxn_update[i] = updates
 
         for i, reaction in enumerate(self.reactions):
             rxn_schema = rxn_schemas[i]
@@ -325,6 +325,22 @@ class Propensity:
         # Propensities for all reactions in col_from, col_to
         #   with specie_idx as reactant have to have propensities
         #   updated
+        # Adjust rxn propensities in this
+        #   compartment
+        for rxn_idx_update in self.specie_rxn_update[specie_idx]:
+            rate = self.rxn_rates[rxn_idx_update]
+            rxn = self.rxn[rxn_idx_update]
+            mask = self.rxn_mask[rxn_idx_update]
+            new_prop = (self.n_species[:, col_from] * rxn)[mask]
+            self.rxn_prop[rxn_idx_update, col_from] = \
+                (new_prop.prod() * rate)
+            self.rxn_prop[rxn_idx_update, col_from] *= \
+                self.prop_rxn_mask[rxn_idx_update, col_from]
+            new_prop = (self.n_species[:, col_to] * rxn)[mask]
+            self.rxn_prop[rxn_idx_update, col_to] = \
+                (new_prop.prod() * rate)
+            self.rxn_prop[rxn_idx_update, col_to] *= \
+                self.prop_rxn_mask[rxn_idx_update, col_to]
 
         # Marginal diffusion propensities
         diff_from = self.diff[specie_idx][col_from]

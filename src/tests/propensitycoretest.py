@@ -43,11 +43,11 @@ class PropensityCoreTests:
         assert prop.reactions == self.reactions
         assert prop.compartment_cnt == self.expected_compartment_cnt
 
-        numpy.array_equal(prop.rxn_rates, self.rxn_rates)
-        numpy.array_equal(prop.rxn, self.expected_rxn)
-        numpy.array_equal(prop.rxn_stoic, self.expected_rxn_stoic)
+        assert numpy.array_equal(prop.rxn_rates, self.rxn_rates)
+        assert numpy.array_equal(prop.rxn, self.expected_rxn)
+        assert numpy.array_equal(prop.rxn_stoic, self.expected_rxn_stoic)
 
-        numpy.array_equal(prop.diff, self.expected_diff)
+        assert numpy.array_equal(prop.diff, self.expected_diff)
 
 
 class PropensityDiffTests(PropensityCoreTests):
