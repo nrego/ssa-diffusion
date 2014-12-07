@@ -150,6 +150,14 @@ class System:
         assert self.compartment_bounds.ndim == 1
         self.compartment_cnt = self.compartment_lengths.size
 
+        config.coerce_type_if_present(['system', 'spec', 'barrier'], int)
+        barrier = config.get(['system', 'spec', 'barrier'])
+        if barrier is not None:
+            assert barrier < self.compartment_cnt, \
+                'Barrier index must be less than compartment count'
+            self.barrier_spec = {'barrier': barrier}
+
+
         self.species = config.get(['system', 'spec', 'species'], [])
         self.species.sort()
         reactions = config.get(['system', 'spec', 'reactions'], {})
@@ -207,6 +215,7 @@ class System:
         self.compartment_bounds = None
         self.compartment_lengths = None
         self.compartment_cnt = None
+        self.barrier_spec = None  # Indices of any barriers
         self.species = None
         self.reactions = None
         self.reaction_names = None
@@ -250,6 +259,9 @@ class System:
                 diff_rates = diff_params[specie]/squared_dist
                 rates['diffusion'][specie] = diff_rates
 
+        if self.barrier_spec:
+            self.barrier_spec.update(config.get(['params', 'barrier'], {}))
+
         # Initialize 'state' - i.e. what changes as simulation runs
         self.state = {'time': 0.0,
 
@@ -257,7 +269,9 @@ class System:
                       [0 for i in self.compartment_lengths]
                       for specie in self.species},
 
-                      'rates': rates
+                      'rates': rates,
+
+                      'barrier_spec': self.barrier_spec
                       }
 
         # System state from config file
@@ -291,6 +305,9 @@ class System:
         self.rc.pstatus('  N compartments: {!r}'.format(self.n_compartments))
         self.rc.pstatus('  Compartment bounds: {!r}'.format(self.compartment_bounds))
         self.rc.pstatus('  Compartment lengths: {!r}'.format(self.compartment_lengths))
+
+        if self.barrier_spec is not None:
+            self.rc.pstatus('  Barrier index: {}'.format(self.barrier_spec['barrier']))
 
         self.rc.pstatus('Rates (1/s):')
         self.rc.pstatus('  Species diffusion:')

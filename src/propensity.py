@@ -23,7 +23,7 @@ class Propensity:
        My attribute naming scheme, as much as it exists,
              is kind of shitty - sorry about that'''
 
-    def __init__(self, state, rxn_schemas=None, prop_mask=None):
+    def __init__(self, state, rxn_schemas=None, prop_mask=None, barrier=None):
 
         self.state = state
         self.species = None
@@ -54,6 +54,12 @@ class Propensity:
         #   (move right) must be zero at last col,
         #   odd rows (move left) must be zero at first
         self.diff_mask = None
+
+        # Array to represent
+        #   optional 'barrier' compartments
+        # shape: (specie_cnt,)
+        self.barrier_mask = None
+        self.barrier_idx = None
 
         # Cumulative sum for diff propensities
         # lol cum
@@ -162,15 +168,28 @@ class Propensity:
             'Reactions are not ordered correctly'
 
         self.diff = numpy.array(self.state['rates']['diffusion'].values(),
-                                dtype=numpy.float32)
+                                dtype=numpy.float64)
         # Block some species diffusion in certain compartments, if desired
         self.diff *= self.prop_diff_mask
         log.debug('Diff array:{!r}'.format(self.diff))
 
+        barrier = self.state['barrier_spec']
+
+        if barrier is not None:
+            self.barrier_idx = barrier['barrier']
+            self.barrier_mask = numpy.zeros((self.specie_cnt, 2),
+                                            dtype=numpy.float64)
+            for i, specie in enumerate(self.species):
+                if specie in barrier:
+                    barrier_diff_right = barrier[specie] / self.diff[i, self.barrier_idx]
+                    barrier_diff_left = barrier[specie] / self.diff[i, self.barrier_idx+1]
+                    self.barrier_mask[i, 0] = barrier_diff_right
+                    self.barrier_mask[i, 1] = barrier_diff_left
+
         diff_prop = self.diff * self.n_species
 
         self.diff_prop = numpy.zeros((diff_prop.shape[0]*2, diff_prop.shape[1]),
-                                     dtype=numpy.float32)
+                                     dtype=numpy.float64)
         self.diff_mask = self.diff_prop == self.diff_prop
 
         assert self.diff_mask.dtype == 'bool'
@@ -184,6 +203,10 @@ class Propensity:
             self.diff_prop[2*i+1, 1:] = diff_prop[i, 1:]
 
         self.diff_prop *= self.diff_mask
+        if self.barrier_idx:
+            self.diff_prop[::2, self.barrier_idx] *= self.barrier_mask[:, 0]
+            self.diff_prop[1::2, self.barrier_idx+1] *= self.barrier_mask[:, 1]
+
         log.debug('Diff propensity array: {!r}'.format(self.diff_prop))
 
         self.diff_cum = self.diff_prop.cumsum()
@@ -192,13 +215,13 @@ class Propensity:
         # Reaction arrays
         self.rxn_rxn_update = {}
         self.rxn_rates = numpy.zeros((self.rxn_cnt,),
-                                     dtype=numpy.float32)
+                                     dtype=numpy.float64)
         self.rxn_stoic = numpy.zeros((self.rxn_cnt, self.specie_cnt),
-                                     dtype=numpy.float32)
+                                     dtype=numpy.float64)
         self.rxn_prop = numpy.ones((self.rxn_cnt, self.compartment_cnt),
-                                   dtype=numpy.float32)
+                                   dtype=numpy.float64)
         self.rxn = numpy.zeros((self.rxn_cnt, self.specie_cnt),
-                               dtype=numpy.float32)
+                               dtype=numpy.float64)
 
         for i, reaction in enumerate(self.reactions):
             rxn_schema = rxn_schemas[i]
@@ -313,6 +336,9 @@ class Propensity:
 
         #log.debug('diff prop after: {!r}'.format(self.diff_prop))
         self.diff_prop *= self.diff_mask
+        if self.barrier_idx:
+            self.diff_prop[::2, self.barrier_idx] *= self.barrier_mask[:, 0]
+            self.diff_prop[1::2, self.barrier_idx+1] *= self.barrier_mask[:, 1]
         self.diff_cum = self.diff_prop.cumsum()
         self.rxn_cum = self.rxn_prop.cumsum()  # Ugh
 
@@ -331,6 +357,9 @@ class Propensity:
         self.diff_prop[::2, compartment_idx] += delta_diff
         self.diff_prop[1::2, compartment_idx] += delta_diff
         self.diff_prop[:, compartment_idx] *= self.diff_mask[:, compartment_idx]
+        if self.barrier_idx:
+            self.diff_prop[::2, self.barrier_idx] *= self.barrier_mask[:, 0]
+            self.diff_prop[1::2, self.barrier_idx+1] *= self.barrier_mask[:, 1]
 
         # Adjust rxn propensities in this
         #   compartment

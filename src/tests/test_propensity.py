@@ -22,7 +22,8 @@ class TestPropensityDiffusionOnly(PropensityDiffTests):
              'rates': {'diffusion': {'A': [1, 1, 1, 1],
                                      'B': [2, 2, 2, 2]},
                        'reaction': {}
-                       }
+                       },
+             'barrier_spec': None
              }
 
     species = sorted(state['n_species'].keys())
@@ -108,7 +109,8 @@ class TestPropensityReactionOnly(PropensityRxnTests):
                                      'C': [0]},
                        'reaction': {'deg': 0.1,
                                     'prod': 1}
-                       }
+                       },
+             'barrier_spec': None
              }
 
     species = sorted(state['n_species'].keys())
