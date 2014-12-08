@@ -17,9 +17,13 @@ except ImportError:
 
 import ssa
 import numpy
+from matplotlib import pyplot
+from matplotlib import animation
 
 # Default - data buffer flush interval
 BUFFER_FLUSH = 50
+
+
 
 class DataManager:
     '''
@@ -42,6 +46,10 @@ class DataManager:
         self.dlength = None
         self.buffer_flush = None
         self.data_ptr = None
+
+        self.data_field = None
+        self.data_view = None
+        self.data_timepts = None
 
         # Output for sim state
         self.stateout = self.rc.stateout
@@ -126,6 +134,50 @@ class DataManager:
         self.rc.pstatus()
         self.rc.pflush()
 
+    # Read in outfile for post-simulation analysis
+    def load_data(self, datafile=None):
+        datafile = datafile or self.outfilename
+
+        try:
+            self.data_field = numpy.loadtxt(datafile)
+        except Exception as e:
+            raise IOError('Error reading datafile: {}: {}'.format(datafile, e))
+
+
+    def get_data_for_species(self, species_idx, compartment_range=None):
+        compartment_cnt = self.system.compartment_cnt
+        if not compartment_range:
+            compartment_range = range(compartment_cnt)
+        cnt = self.system.species_cnt
+        self.data_view = numpy.sum(self.data_field[species_idx::cnt, compartment_range], axis=1)
+        self.data_timepts = self.data_field[species_idx::cnt, 0]
+
+    def plot_animation(self, species_idx, start_pt=0):
+        fig = pyplot.figure()
+        ax = pyplot.axes()
+        cnt = self.system.species_cnt
+        self.data_view = self.data_field[species_idx::cnt, 1:]
+        npts = self.data_view.shape[0]
+        self.data_timepts = self.data_field[species_idx::cnt, 0]
+        bin_ctrs = (self.system.compartment_bounds[1:] - self.system.compartment_bounds[:-1]) / 2 \
+                    + self.system.compartment_bounds[:-1]
+
+        rects, = ax.plot(bin_ctrs, self.data_view[start_pt])
+
+        animation.FuncAnimation(fig, _animate, numpy.arange(start_pt, npts),
+                                fargs=(rects, self, bin_ctrs), interval=20)
+
+        pyplot.show()
+
+    def plot_data(self, label=''):
+        #fig = pyplot.figure()
+        pyplot.title('Cargo Export, {:d} bins'.format(self.system.compartment_cnt), fontsize=45)
+
+        pyplot.plot(self.data_timepts, self.data_view, label=label)
+        pyplot.xlabel('Time (s)', fontsize=30)
+        pyplot.ylabel('N Cargo', fontsize=30)
+        #pyplot.show()
+
     @property
     def system(self):
         if self._system is None:
@@ -143,3 +195,9 @@ class DataManager:
             self._sim_manager = self.rc.get_sim_manager()
 
         return self._sim_manager
+
+def _animate(i, rects, dm, bin_ctrs):
+    new_data = dm.data_view[i,:]
+
+    rects.set_data(bin_ctrs, new_data)
+    return rects

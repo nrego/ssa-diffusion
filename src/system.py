@@ -251,6 +251,9 @@ class System:
         if rate_params:
             rates['reaction'].update(rate_params)
 
+        for k, v in rates['reaction'].iteritems():
+            rates['reaction'][k] = float(v)
+
         # Compartment diffusion rate: (d = D/h^2)
         # (D is diff coef, h is compartment length)
         if diff_params:

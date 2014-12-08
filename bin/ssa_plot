@@ -1,0 +1,49 @@
+#!/usr/local/anaconda/bin/python2.7
+
+from __future__ import division, print_function
+
+import logging, argparse, traceback
+log = logging.getLogger('ssarun')
+
+import ssa
+import work_managers
+import numpy
+from matplotlib import pyplot
+#from work_managers import make_work_manager
+
+parser = argparse.ArgumentParser('ssa_plot', description='Plot data')
+parser.add_argument('-s', '--statefile', metavar='STATEFILE', dest='statefile', default='state.cpt',
+                    help='use STATEFILE (ouput of previous run or ssa_init) (default: %(default)s)')
+parser.add_argument('--spec', help='Name of species', nargs='+')
+parser.add_argument('--range', help='Compartment indices over which to plot')
+
+ssa.rc.add_args(parser)
+
+work_managers.environment.add_wm_args(parser)
+
+args = parser.parse_args()
+ssa.rc.process_args(args)
+work_managers.environment.process_wm_args(args)
+#ssa.rc.work_manager = work_manager = make_work_manager()
+
+system = ssa.rc.get_system()
+sim_manager = ssa.rc.get_sim_manager()
+data_manager = ssa.rc.get_data_manager()
+
+# Load in state info
+data_manager.load_state(args.statefile)
+specs = args.spec
+
+argrange = eval(args.range, {'numpy': numpy})
+
+for i, val in enumerate(argrange):
+    argrange[i] = val+1
+
+data_manager.load_data()
+print('{}'.format(specs))
+for spec_idx in specs:
+    specie = system.species.index(spec_idx)
+    data_manager.get_data_for_species(specie, argrange)
+    data_manager.plot_data()
+
+pyplot.show()
