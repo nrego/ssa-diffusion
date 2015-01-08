@@ -20,3 +20,7 @@ shebang="#!$SSA_PYTHON"
 echo "Adding shebang line: '$shebang' to binaries..."
 
 sed -i "1 s|.*|$shebang|" ./bin/ssa_*
+
+echo PATH="$PATH:$PWD/bin" >> ~/.bashrc
+
+source ~/.bashrc

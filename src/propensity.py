@@ -20,7 +20,7 @@ class Propensity:
        Expects that all species keys from state are sorted
        (according to hash order)
 
-       My attribute naming scheme, as much as it exists,
+       My attribute naming scheme, insofar as it exists,
              is kind of shitty - sorry about that'''
 
     def __init__(self, state, rxn_schemas=None, prop_mask=None, barrier=None):
@@ -45,7 +45,7 @@ class Propensity:
         self.diff = None
 
         # Diffusion propensities for all species:
-        #   right propensities, then right propensities
+        #   right propensities, then left propensities
         # shape: (specie_cnt, compartment_cnt)
         self.diff_prop = None
 
@@ -62,7 +62,6 @@ class Propensity:
         self.barrier_idx = None
 
         # Cumulative sum for diff propensities
-        # lol cum
         self.diff_cum = None
 
         # 2 * specie_cnt * compartment_cnt
