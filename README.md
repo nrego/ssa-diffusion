@@ -29,7 +29,11 @@ After cloning, simply run:
 ./setup.sh
 '''
 
-Running
+Make sure you add `ssa/lib` to your `PYTHONPATH` environmental variable
+
+You may also want to add `ssa/bin` to your `PATH`
+
+Simulation setup
 ====
 
 Simulations require two (YAML formatted) configuration files:
@@ -55,4 +59,15 @@ Defines parameters for the system defined in the system config file:
 See examples `examples` for more details:
 
 *sim.cfg* - Simulation config
+
 *params.cfg* - Parameter config
+
+
+Running a simulation
+=====
+
+**ssa_init** : Preprocess configuration files and initialize simulation
+
+**ssa_run** : Run or continue simulation from state file
+
+You can use either command with option '-h' or '--help' for more information
