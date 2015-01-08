@@ -29,7 +29,8 @@ After cloning, simply run:
 ./setup.sh
 '''
 
-Make sure you add `ssa/lib` to your `PYTHONPATH` environmental variable
+Make sure you add `[ssa]/lib` and `[ssa]/src` to your `PYTHONPATH` environmental variable, where
+'[ssa]' points to the directory of the ssa code.
 
 You may also want to add `ssa/bin` to your `PATH`
 
