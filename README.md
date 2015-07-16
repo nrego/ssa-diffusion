@@ -6,9 +6,7 @@ An implementation of Gillespie's stochastic simulation algorithm (SSA) with 1D d
 Dependencies
 ====
 
-The easiest way to ensure all dependencies are met is to use the free Anaconda python distribution:
-
-https://store.continuum.io/cshop/anaconda/
+The easiest way to ensure all dependencies are met is to use a Python distribution, such as Anaconda (https://store.continuum.io/cshop/anaconda/) or Canopy (https://www.enthought.com/products/canopy/)
 
 Specifically, this code uses:
 
